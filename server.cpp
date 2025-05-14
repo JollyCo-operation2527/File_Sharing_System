@@ -62,7 +62,7 @@ int main(){
             std::cout << "SERVER: Received client request: " << buffer << std::endl;
 
             // Respond with "OK" message
-            std::cout << "SERVER: Sending \"" << response << " \" to client" << std::endl;
+            std::cout << "SERVER: Sending \"" << response << "\" to client" << std::endl;
             send(clientSocket, response, strlen(response), 0);
 
             if((strcmp(buffer, "done") == 0) || (strcmp(buffer, "stop") == 0)){

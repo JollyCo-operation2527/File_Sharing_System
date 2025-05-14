@@ -1,4 +1,5 @@
 #include <iostream>
+#include <string>
 #include <cstring>
 #include <netinet/in.h>
 #include <sys/socket.h>
@@ -9,7 +10,7 @@ int main(){
     int clientSocket;
     struct sockaddr_in  serverAddress;
     int status, bytesRcv;
-    char inStr[80];      // Store input from keyboard
+    std::string inStr;   // Store input from keyboard
     char buffer[80];     // Store input from keyboard
 
     // Create a client socket
@@ -37,15 +38,26 @@ int main(){
     // Go into loop to talk to the server
     while(1){
         std::cout << "CLIENT: Enter message to send to server ..." << std::endl;
-        std::cin >> inStr;
+        std::getline(std::cin, inStr);
+
+        if (inStr.empty()){
+            continue;
+        }
 
         // Send message string to server
-        strcpy(buffer, inStr);
-        std::cout << "CLIENT: Sending \" " << buffer << " \" to the server" << std::endl;
+        strcpy(buffer, inStr.c_str());
+        std::cout << "CLIENT: Sending \"" << buffer << "\" to the server" << std::endl;
         send(clientSocket, buffer, strlen(buffer), 0);
 
         // Get response from the server (expecting "OK")
         bytesRcv = recv(clientSocket, buffer, 80, 0);
+
+        // If receive less than or equal 0 bytes from server, it means the server connection is closed
+        if (bytesRcv <= 0){
+            std::cout << "CLIENT: Server connection closed" << std::endl;
+            break;
+        }
+
         buffer[bytesRcv] = 0;  // Put a 0 at the end so we can display the string
         std::cout << "CLIENT: Got back response \"" << buffer << "\" from the server" << std::endl;
         
