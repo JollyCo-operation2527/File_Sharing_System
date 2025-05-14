@@ -1,0 +1,6 @@
+# Ignore these files
+sv
+cl
+*.o
+*.out
+*.exe
