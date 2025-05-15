@@ -3,6 +3,11 @@
 #include <netinet/in.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <fstream>
+
+#define SERVER_PORT 6000
+
+int clientUpload();
 
 int main(){
     int serverSocket, clientSocket;
@@ -24,7 +29,7 @@ int main(){
     memset(&serverAddress, 0, sizeof(serverAddress));
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_addr.s_addr = htonl(INADDR_ANY);
-    serverAddress.sin_port = htons((unsigned short) 6000);
+    serverAddress.sin_port = htons((unsigned short) SERVER_PORT);
 
     // Bind the server socket
     status = bind(serverSocket, (struct sockaddr *) &serverAddress, sizeof(serverAddress));
@@ -41,6 +46,8 @@ int main(){
         std::cout << "SERVER ERROR: Could not listen on socket" << std::endl;
         exit(-1);
     }
+
+    std::cout << "SERVER: READY" << std::endl;
 
     // Wait for clients
     while(1){
@@ -81,4 +88,8 @@ int main(){
     // Close the server socket
     close(serverSocket);
     std::cout << "SERVER: Shutting down" << std::endl;
+}
+
+int clientUpload(){
+    return 0;
 }
