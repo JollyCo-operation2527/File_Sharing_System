@@ -6,14 +6,14 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <fstream>
-#include <vector>
+//#include <vector>
 
 #define SERVER_IP "127.0.0.1"
 #define SERVER_PORT 6000
 
 #define maxBufferLength 4096
 
-int upload();
+int upload(int);
 
 int main(){
     int clientSocket;
@@ -59,12 +59,12 @@ int main(){
         std::cout << "CLIENT: Sending \"" << buffer << "\" to the server" << std::endl;
         send(clientSocket, buffer, strlen(buffer), 0);
 
-        if((strcmp(buffer, "done") == 0) || (strcmp(buffer, "stop") == 0)){
+        if ((strcmp(buffer, "done") == 0) || (strcmp(buffer, "stop") == 0)){
             break;
         }
 
         else if (strcmp(buffer, "upload") == 0){
-            upload();
+            upload(clientSocket);
         }
 
         // Get response from the server (expecting "OK")
@@ -90,25 +90,49 @@ int main(){
 }
 
 
-int upload(){
+int upload(int clientSocket){
     char buffer[maxBufferLength];
     std::string input;
-    // Get the user to specify the file's name
-    std::getline(std::cin, input);  
-    std::ifstream file(input, std::ios::binary);
 
-    // If cannot open file
-    if(!file){
-        std::cout << "CLIENT: Could not open file" << std::endl;
+    // Create a struct that include file meta data
+    struct FileHeader{
+        char fn[128];
+        int fs;
+    };
+
+    // Get the user to specify the file's name
+    std::cout << "CLIENT: Enter file's name: ";
+    std::getline(std::cin, input);  
+ 
+    // Open the file (or try to, at least)
+    std::ifstream inFile(input, std::ios::binary);
+    
+    // If cannot open inFile
+    if (!inFile){
+        std::cout << "CLIENT: Could not open inFile" << std::endl;
         return -1;
     }
 
-    // Read file into buffer
-    while (file.read(buffer, maxBufferLength) || file.gcount() > 0){
-        std::streamsize bytesRead = file.gcount();
+    // Get the size of the file
+    inFile.seekg(0, inFile.end);
+    int fileSize = inFile.tellg();
+    inFile.seekg(0, inFile.beg);
+    
+    // Send file's meta data to server
+    FileHeader myFile; 
+    strcpy(myFile.fn, input.c_str());
+    myFile.fs = fileSize;
+    send(clientSocket, &myFile, sizeof(myFile), 0);
+
+    // Read inFile into buffer
+    while (inFile.read(buffer, maxBufferLength) || inFile.gcount() > 0){
+        std::streamsize bytesRead = inFile.gcount();
 
         std::cout << bytesRead << std::endl;
         std::cout << buffer << std::endl;
+
+        // Sending the data to the server
+        send(clientSocket, buffer, bytesRead, 0);
     }
 
     return 0;

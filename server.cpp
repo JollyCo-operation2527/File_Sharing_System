@@ -7,7 +7,9 @@
 
 #define SERVER_PORT 6000
 
-int clientUpload();
+#define maxBufferLength 4096
+
+int clientUpload(int, std::string);
 
 int main(){
     int serverSocket, clientSocket;
@@ -75,12 +77,29 @@ int main(){
             if((strcmp(buffer, "done") == 0) || (strcmp(buffer, "stop") == 0)){
                 break;
             }
+
+            else if (strcmp(buffer, "upload") == 0){
+                std::cout << "SERVER: --------------" << std::endl;
+
+                struct FileHeader{
+                    char fn[128];
+                    int fs;
+                };
+
+                FileHeader recvFile;
+                recv(clientSocket, &recvFile, sizeof(recvFile), 0);
+
+                std::cout << "SERVER: File's name is: " << recvFile.fn << std::endl;
+                std::cout << "SERVER: File's size is: " << recvFile.fs << std::endl;
+
+                clientUpload(clientSocket, recvFile.fn);
+            }
         }
 
         std::cout << "SERVER: Closing client connection" << std::endl;
         close(clientSocket);
 
-        if(strcmp(buffer, "stop") == 0){
+        if (strcmp(buffer, "stop") == 0){
             break;
         }
     }
@@ -90,6 +109,37 @@ int main(){
     std::cout << "SERVER: Shutting down" << std::endl;
 }
 
-int clientUpload(){
+int clientUpload(int clientSocket, std::string fileName){
+    int bytesRead = 1;
+    char buffer[maxBufferLength];
+
+    std::cout << "SERVER: Client uploading" << std::endl;
+
+    std::ofstream outFile("/home/jolly/P2P_File_Sharing/output/outputTest.txt", std::ofstream::binary);
+
+    while(bytesRead > 0){
+        
+        if (bytesRead <= 0){
+            break;
+        }
+        
+        // What if bytesRead < 0 (could happen due to error)
+        
+        if (!outFile){
+            std::cout << "SERVER: Could not write outFile" << std::endl;
+            return -1;
+        }
+
+        bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0);
+
+        std::cout << "bytesRead = " << bytesRead << std::endl; 
+
+        std::cout << buffer << std::endl;
+        outFile.write(buffer, bytesRead);
+        outFile.flush();
+    }
+
+    outFile.close();
+    std::cout << "SERVER: File closed" << std::endl;
     return 0;
 }
