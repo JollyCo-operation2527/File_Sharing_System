@@ -129,7 +129,6 @@ int upload(int clientSocket){
         std::streamsize bytesRead = inFile.gcount();
 
         std::cout << bytesRead << std::endl;
-        std::cout << buffer << std::endl;
 
         // Sending the data to the server
         send(clientSocket, buffer, bytesRead, 0);

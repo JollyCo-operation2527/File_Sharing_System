@@ -9,7 +9,7 @@
 
 #define maxBufferLength 4096
 
-int clientUpload(int, std::string);
+int clientUpload(int, char[], int);
 
 int main(){
     int serverSocket, clientSocket;
@@ -79,7 +79,8 @@ int main(){
             }
 
             else if (strcmp(buffer, "upload") == 0){
-                std::cout << "SERVER: --------------" << std::endl;
+                std::cout << "SERVER: -------------------------" << std::endl;
+                std::cout << "SERVER: Receiving mode" << std::endl;
 
                 struct FileHeader{
                     char fn[128];
@@ -92,7 +93,7 @@ int main(){
                 std::cout << "SERVER: File's name is: " << recvFile.fn << std::endl;
                 std::cout << "SERVER: File's size is: " << recvFile.fs << std::endl;
 
-                clientUpload(clientSocket, recvFile.fn);
+                clientUpload(clientSocket, recvFile.fn, recvFile.fs);
             }
         }
 
@@ -109,34 +110,35 @@ int main(){
     std::cout << "SERVER: Shutting down" << std::endl;
 }
 
-int clientUpload(int clientSocket, std::string fileName){
-    int bytesRead = 1;
+int clientUpload(int clientSocket, char fileName[128], int fileSize){
+    int totalBytesRead = 0;
     char buffer[maxBufferLength];
+    std::string fullPath = "./output/";
+    fullPath += fileName;
 
     std::cout << "SERVER: Client uploading" << std::endl;
 
-    std::ofstream outFile("/home/jolly/P2P_File_Sharing/output/outputTest.txt", std::ofstream::binary);
+    std::ofstream outFile(fullPath, std::ofstream::binary);
 
-    while(bytesRead > 0){
-        
-        if (bytesRead <= 0){
+    if (!outFile){
+        std::cout << "SERVER: Could not write outFile" << std::endl;
+        return -1;
+    }
+
+    while(totalBytesRead < fileSize){
+        int bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0);
+
+        if (bytesRead < 0){
+            std::cout << "SERVER: Writing error" << std::endl;
             break;
         }
         
         // What if bytesRead < 0 (could happen due to error)
-        
-        if (!outFile){
-            std::cout << "SERVER: Could not write outFile" << std::endl;
-            return -1;
-        }
 
-        bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0);
+        std::cout << "total bytes read = " << totalBytesRead << std::endl; 
 
-        std::cout << "bytesRead = " << bytesRead << std::endl; 
-
-        std::cout << buffer << std::endl;
         outFile.write(buffer, bytesRead);
-        outFile.flush();
+        totalBytesRead += bytesRead;
     }
 
     outFile.close();

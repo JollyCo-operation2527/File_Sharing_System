@@ -1,4 +1,4 @@
-Status: Nowhere near complete
+Status: Ongoing
 
 This is another hobby project of mine.
 I want to create a P2P file sharing system in C++

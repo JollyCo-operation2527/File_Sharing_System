@@ -4,4 +4,7 @@ cl
 *.o
 *.out
 *.exe
+
+# These are test files
 *.txt
+*.jpg
