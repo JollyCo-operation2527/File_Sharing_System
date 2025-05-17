@@ -7,13 +7,14 @@
 #include <unistd.h>
 #include <fstream>
 //#include <vector>
+#include <filesystem>
 
 #define SERVER_IP "127.0.0.1"
 #define SERVER_PORT 6000
 
 #define maxBufferLength 4096
 
-int upload(int);
+int upload(struct sockaddr_in, std::string);
 
 int main(){
     int clientSocket;
@@ -64,7 +65,19 @@ int main(){
         }
 
         else if (strcmp(buffer, "upload") == 0){
-            upload(clientSocket);
+            std::string input;
+        
+            // Get the user to specify the file's name
+            std::cout << "CLIENT: Enter file's name: ";
+            std::getline(std::cin, input);  
+
+            // CHeck if the file is regular and exists
+            if(std::filesystem::exists(input) && std::filesystem::is_regular_file(input)){
+                upload(serverAddress, input);
+            }else{
+                std::cout << "CLIENT ERROR: No such file or file irregular" << std::endl;
+                continue;
+            }
         }
 
         // Get response from the server (expecting "OK")
@@ -90,19 +103,29 @@ int main(){
 }
 
 
-int upload(int clientSocket){
+int upload(struct sockaddr_in serverAddress, std::string input){
     char buffer[maxBufferLength];
-    std::string input;
-
     // Create a struct that include file meta data
     struct FileHeader{
         char fn[128];
         int fs;
     };
 
-    // Get the user to specify the file's name
-    std::cout << "CLIENT: Enter file's name: ";
-    std::getline(std::cin, input);  
+    // Create a socket just for the upload
+    int uploadSocket = socket(AF_INET, SOCK_STREAM, 0);
+
+    if (uploadSocket < 0){
+        std::cout << "THREAD ERROR: Could not open socket" << std::endl;
+        exit(-1);
+    }
+
+    // Connect to server
+    int status = connect(uploadSocket, (struct sockaddr *) &serverAddress, sizeof(serverAddress));
+
+    if (status < 0){
+        std::cout << "THREAD ERROR: Could not connect to server" << std::endl;
+        return -1;
+    }
  
     // Open the file (or try to, at least)
     std::ifstream inFile(input, std::ios::binary);
@@ -110,6 +133,7 @@ int upload(int clientSocket){
     // If cannot open inFile
     if (!inFile){
         std::cout << "CLIENT: Could not open inFile" << std::endl;
+        close(uploadSocket);
         return -1;
     }
 
@@ -122,17 +146,18 @@ int upload(int clientSocket){
     FileHeader myFile; 
     strcpy(myFile.fn, input.c_str());
     myFile.fs = fileSize;
-    send(clientSocket, &myFile, sizeof(myFile), 0);
+    send(uploadSocket, &myFile, sizeof(myFile), 0);
 
     // Read inFile into buffer
     while (inFile.read(buffer, maxBufferLength) || inFile.gcount() > 0){
         std::streamsize bytesRead = inFile.gcount();
 
-        std::cout << bytesRead << std::endl;
+        //std::cout << bytesRead << std::endl;
 
         // Sending the data to the server
-        send(clientSocket, buffer, bytesRead, 0);
+        send(uploadSocket, buffer, bytesRead, 0);
     }
 
+    close(uploadSocket);
     return 0;
 }

@@ -13,9 +13,9 @@ int clientUpload(int, char[], int);
 
 int main(){
     int serverSocket, clientSocket;
-    struct sockaddr_in  serverAddress, clientAddress;
+    struct sockaddr_in  serverAddress, clientAddress, uploadAddress;
     int status, bytesRcv;
-    socklen_t addrSize;
+    socklen_t addrSize, uploadSize;
     char buffer[30];
     char response[] = "OK" ;
 
@@ -41,8 +41,8 @@ int main(){
         exit(-1);
     }
 
-    // Listen up to 5 clients
-    status = listen(serverSocket, 5);
+    // Listen up to 10 clients
+    status = listen(serverSocket, 10);
 
     if (status < 0){
         std::cout << "SERVER ERROR: Could not listen on socket" << std::endl;
@@ -87,13 +87,23 @@ int main(){
                     int fs;
                 };
 
+                uploadSize = sizeof(uploadAddress);
+                int uploadSocket = accept(serverSocket, (struct sockaddr *) &uploadAddress, &uploadSize);
+        
+                if (uploadSocket < 0){
+                    std::cout << "SERVER ERROR: Could not accept incoming client connection" << std::endl;
+                    exit(-1);
+                }
+                std::cout << "SERVER: Thread connected" << std::endl;
+
                 FileHeader recvFile;
-                recv(clientSocket, &recvFile, sizeof(recvFile), 0);
+                recv(uploadSocket, &recvFile, sizeof(recvFile), 0);
 
                 std::cout << "SERVER: File's name is: " << recvFile.fn << std::endl;
                 std::cout << "SERVER: File's size is: " << recvFile.fs << std::endl;
 
-                clientUpload(clientSocket, recvFile.fn, recvFile.fs);
+                clientUpload(uploadSocket, recvFile.fn, recvFile.fs);
+                close(uploadSocket);
             }
         }
 
@@ -135,7 +145,7 @@ int clientUpload(int clientSocket, char fileName[128], int fileSize){
         
         // What if bytesRead < 0 (could happen due to error)
 
-        std::cout << "total bytes read = " << totalBytesRead << std::endl; 
+        //std::cout << "total bytes read = " << totalBytesRead << std::endl; 
 
         outFile.write(buffer, bytesRead);
         totalBytesRead += bytesRead;
