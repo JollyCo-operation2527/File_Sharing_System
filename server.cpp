@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 #include <fstream>
+#include <sys/time.h>
 
 #define SERVER_PORT 6000
 
@@ -18,6 +19,11 @@ int main(){
     socklen_t addrSize, uploadSize;
     char buffer[30];
     char response[] = "OK" ;
+
+    struct FileHeader{
+        char fn[128];
+        int fs;
+    };
 
     // Create a server socket
     serverSocket = socket(AF_INET, SOCK_STREAM, 0);
@@ -82,28 +88,40 @@ int main(){
                 std::cout << "SERVER: -------------------------" << std::endl;
                 std::cout << "SERVER: Receiving mode" << std::endl;
 
-                struct FileHeader{
-                    char fn[128];
-                    int fs;
-                };
+                // Create a file descriptor
+                fd_set readfds;
+                FD_ZERO(&readfds);
+                FD_SET(serverSocket, &readfds);
+                struct timeval timeout;
+                timeout.tv_sec = 5;    // Wait 5 seconds for the uploadSocket to connect
+                timeout.tv_usec = 0;
 
-                uploadSize = sizeof(uploadAddress);
-                int uploadSocket = accept(serverSocket, (struct sockaddr *) &uploadAddress, &uploadSize);
-        
-                if (uploadSocket < 0){
-                    std::cout << "SERVER ERROR: Could not accept incoming client connection" << std::endl;
-                    exit(-1);
+                int activity = select(serverSocket + 1, &readfds, NULL, NULL, &timeout);
+
+                // If some socket is ready (activity > 0) and serverSokcet is one of them
+                if(activity > 0 && FD_ISSET(serverSocket, &readfds)){
+                    uploadSize = sizeof(uploadAddress);
+                    int uploadSocket = accept(serverSocket, (struct sockaddr *) &uploadAddress, &uploadSize);
+            
+                    if (uploadSocket < 0){
+                        std::cout << "SERVER ERROR: Could not accept incoming client connection" << std::endl;
+                        continue;
+                    }
+
+                    std::cout << "SERVER: Thread connected" << std::endl;
+
+                    FileHeader recvFile;
+                    recv(uploadSocket, &recvFile, sizeof(recvFile), 0);
+
+                    std::cout << "SERVER: File's name is: " << recvFile.fn << std::endl;
+                    std::cout << "SERVER: File's size is: " << recvFile.fs << std::endl;
+
+                    clientUpload(uploadSocket, recvFile.fn, recvFile.fs);
+                    close(uploadSocket);
+                }else{
+                    std::cout << "SERVER: No upload attempt within " << timeout.tv_sec << " seconds. Abort upload mode" << std::endl;
+                    continue;
                 }
-                std::cout << "SERVER: Thread connected" << std::endl;
-
-                FileHeader recvFile;
-                recv(uploadSocket, &recvFile, sizeof(recvFile), 0);
-
-                std::cout << "SERVER: File's name is: " << recvFile.fn << std::endl;
-                std::cout << "SERVER: File's size is: " << recvFile.fs << std::endl;
-
-                clientUpload(uploadSocket, recvFile.fn, recvFile.fs);
-                close(uploadSocket);
             }
         }
 
