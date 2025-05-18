@@ -119,7 +119,7 @@ int main(){
                     clientUpload(uploadSocket, recvFile.fn, recvFile.fs);
                     close(uploadSocket);
                 }else{
-                    std::cout << "SERVER: No upload attempt within " << timeout.tv_sec << " seconds. Abort upload mode" << std::endl;
+                    std::cout << "SERVER: No upload attempt within 5 seconds. Abort upload mode" << std::endl;
                     continue;
                 }
             }
