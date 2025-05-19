@@ -5,25 +5,28 @@
 #include <unistd.h>
 #include <fstream>
 #include <sys/time.h>
+#include <thread>
 
 #define SERVER_PORT 6000
 
 #define maxBufferLength 4096
 
-int clientUpload(int, char[], int);
+int clientUpload(int, const char[], int);
+int handleUpload(int);
+
+// Structure declaration
+struct FileHeader{
+    char fn[128];  // File's name
+    uint32_t fs;   // File's size
+};
 
 int main(){
     int serverSocket, clientSocket;
-    struct sockaddr_in  serverAddress, clientAddress, uploadAddress;
+    struct sockaddr_in  serverAddress, clientAddress;
     int status, bytesRcv;
-    socklen_t addrSize, uploadSize;
+    socklen_t addrSize;
     char buffer[30];
     char response[] = "OK" ;
-
-    struct FileHeader{
-        char fn[128];
-        int fs;
-    };
 
     // Create a server socket
     serverSocket = socket(AF_INET, SOCK_STREAM, 0);
@@ -85,43 +88,8 @@ int main(){
             }
 
             else if (strcmp(buffer, "upload") == 0){
-                std::cout << "SERVER: -------------------------" << std::endl;
-                std::cout << "SERVER: Receiving mode" << std::endl;
-
-                // Create a file descriptor
-                fd_set readfds;
-                FD_ZERO(&readfds);
-                FD_SET(serverSocket, &readfds);
-                struct timeval timeout;
-                timeout.tv_sec = 5;    // Wait 5 seconds for the uploadSocket to connect
-                timeout.tv_usec = 0;
-
-                int activity = select(serverSocket + 1, &readfds, NULL, NULL, &timeout);
-
-                // If some socket is ready (activity > 0) and serverSokcet is one of them
-                if(activity > 0 && FD_ISSET(serverSocket, &readfds)){
-                    uploadSize = sizeof(uploadAddress);
-                    int uploadSocket = accept(serverSocket, (struct sockaddr *) &uploadAddress, &uploadSize);
-            
-                    if (uploadSocket < 0){
-                        std::cout << "SERVER ERROR: Could not accept incoming client connection" << std::endl;
-                        continue;
-                    }
-
-                    std::cout << "SERVER: Thread connected" << std::endl;
-
-                    FileHeader recvFile;
-                    recv(uploadSocket, &recvFile, sizeof(recvFile), 0);
-
-                    std::cout << "SERVER: File's name is: " << recvFile.fn << std::endl;
-                    std::cout << "SERVER: File's size is: " << recvFile.fs << std::endl;
-
-                    clientUpload(uploadSocket, recvFile.fn, recvFile.fs);
-                    close(uploadSocket);
-                }else{
-                    std::cout << "SERVER: No upload attempt within 5 seconds. Abort upload mode" << std::endl;
-                    continue;
-                }
+                // Call the handleUpload function
+                std::thread(handleUpload, serverSocket).detach();
             }
         }
 
@@ -138,7 +106,7 @@ int main(){
     std::cout << "SERVER: Shutting down" << std::endl;
 }
 
-int clientUpload(int clientSocket, char fileName[128], int fileSize){
+int clientUpload(int clientSocket, const char fileName[128], int fileSize){
     int totalBytesRead = 0;
     char buffer[maxBufferLength];
     std::string fullPath = "./output/";
@@ -172,4 +140,55 @@ int clientUpload(int clientSocket, char fileName[128], int fileSize){
     outFile.close();
     std::cout << "SERVER: File closed" << std::endl;
     return 0;
+}
+
+//BEGIN
+int handleUpload(int serverSocket){
+    while(1){
+        struct sockaddr_in uploadAddress;
+        socklen_t uploadSize;
+
+        std::cout << "SERVER: -------------------------" << std::endl;
+        std::cout << "SERVER: Receiving mode" << std::endl;
+
+        // Create a file descriptor
+        fd_set readfds;
+        FD_ZERO(&readfds);
+        FD_SET(serverSocket, &readfds);
+        struct timeval timeout;
+        int originalTimeout = 15;  // Wait 15 seconds for the uploadSocket to connect
+        timeout.tv_sec = originalTimeout;    
+        timeout.tv_usec = 0;
+
+        int activity = select(serverSocket + 1, &readfds, NULL, NULL, &timeout);
+
+        // If some socket is ready (activity > 0) and serverSokcet is one of them
+        if(activity > 0 && FD_ISSET(serverSocket, &readfds)){
+            uploadSize = sizeof(uploadAddress);
+            int uploadSocket = accept(serverSocket, (struct sockaddr *) &uploadAddress, &uploadSize);
+
+            if (uploadSocket < 0){
+                std::cout << "SERVER ERROR: Could not accept incoming client connection" << std::endl;
+                return -1;
+            }
+
+            std::cout << "SERVER: Thread connected" << std::endl;
+
+            FileHeader recvFile;
+            recv(uploadSocket, &recvFile, sizeof(recvFile), 0);
+
+            std::cout << "SERVER: File's name is: " << recvFile.fn << std::endl;
+            std::cout << "SERVER: File's size is: " << recvFile.fs << std::endl;
+
+            // Spawn a new thread wrapping up in a lambda function and call the clientUpload
+            std::thread([=](){
+                clientUpload(uploadSocket, recvFile.fn, recvFile.fs);
+                close(uploadSocket);
+            }).detach();
+            
+        }else{
+            std::cout << "SERVER: No upload attempt within " << originalTimeout << " seconds. Abort upload mode" << std::endl;
+            return -1;
+        }
+    }
 }

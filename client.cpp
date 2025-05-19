@@ -6,8 +6,10 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <fstream>
-//#include <vector>
 #include <filesystem>
+#include <vector>
+#include <thread>
+#include <sstream>
 
 #define SERVER_IP "127.0.0.1"
 #define SERVER_PORT 6000
@@ -15,6 +17,12 @@
 #define maxBufferLength 4096
 
 int upload(struct sockaddr_in, std::string);
+
+// Structure declaration
+struct FileHeader{
+    char fn[128];  // File's name
+    uint32_t fs;   // File's size
+};
 
 int main(){
     int clientSocket;
@@ -66,17 +74,28 @@ int main(){
 
         else if (strcmp(buffer, "upload") == 0){
             std::string input;
+            std::vector<std::string> filesToUpload;
+            std::string file;
         
             // Get the user to specify the file's name
             std::cout << "CLIENT: Enter file's name: ";
             std::getline(std::cin, input);  
 
-            // CHeck if the file is regular and exists
-            if(std::filesystem::exists(input) && std::filesystem::is_regular_file(input)){
-                upload(serverAddress, input);
-            }else{
-                std::cout << "CLIENT ERROR: No such file or file irregular" << std::endl;
-                continue;
+            // Create a string stream object to input
+            std::stringstream ss(input);
+            // Split by '/'
+            while (std::getline(ss, file, '/')){
+                filesToUpload.push_back(file);
+            }
+            // Loop through the vector
+            for(const std::string& str : filesToUpload){
+                // CHeck if the file is regular and exists
+                if(std::filesystem::exists(str) && std::filesystem::is_regular_file(str)){
+                    std::thread(upload, serverAddress, str).detach();
+                }else{
+                    std::cout << "CLIENT ERROR: No such file or file irregular" << std::endl;
+                    continue;
+                }
             }
         }
 
@@ -105,11 +124,6 @@ int main(){
 
 int upload(struct sockaddr_in serverAddress, std::string input){
     char buffer[maxBufferLength];
-    // Create a struct that include file meta data
-    struct FileHeader{
-        char fn[128];
-        int fs;
-    };
 
     // Create a socket just for the upload
     int uploadSocket = socket(AF_INET, SOCK_STREAM, 0);
@@ -157,6 +171,8 @@ int upload(struct sockaddr_in serverAddress, std::string input){
         // Sending the data to the server
         send(uploadSocket, buffer, bytesRead, 0);
     }
+
+    std::cout << "File: " << input << " - Done" << std::endl;
 
     close(uploadSocket);
     return 0;
