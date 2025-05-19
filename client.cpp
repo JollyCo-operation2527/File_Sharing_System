@@ -66,7 +66,11 @@ int main(){
         // Send message string to server
         strcpy(buffer, inStr.c_str());
         std::cout << "CLIENT: Sending \"" << buffer << "\" to the server" << std::endl;
-        send(clientSocket, buffer, strlen(buffer), 0);
+        int bytesSend = send(clientSocket, buffer, strlen(buffer), 0);
+
+        if(bytesSend < 0){
+            std::cout << "CLIENT: bytesSend < 0 error" << std::endl;
+        }
 
         if ((strcmp(buffer, "done") == 0) || (strcmp(buffer, "stop") == 0)){
             break;
@@ -160,7 +164,11 @@ int upload(struct sockaddr_in serverAddress, std::string input){
     FileHeader myFile; 
     strcpy(myFile.fn, input.c_str());
     myFile.fs = fileSize;
-    send(uploadSocket, &myFile, sizeof(myFile), 0);
+    int bytesSend = send(uploadSocket, &myFile, sizeof(myFile), 0);
+
+    if(bytesSend < 0){
+        std::cout << "CLIENT: bytesSend < 0 error" << std::endl;
+    }
 
     // Read inFile into buffer
     while (inFile.read(buffer, maxBufferLength) || inFile.gcount() > 0){
@@ -169,7 +177,11 @@ int upload(struct sockaddr_in serverAddress, std::string input){
         //std::cout << bytesRead << std::endl;
 
         // Sending the data to the server
-        send(uploadSocket, buffer, bytesRead, 0);
+        bytesSend = send(uploadSocket, buffer, bytesRead, 0);
+
+        if(bytesSend < 0){
+            std::cout << "CLIENT: bytesSend < 0 error" << std::endl;
+        }
     }
 
     std::cout << "File: " << input << " - Done" << std::endl;

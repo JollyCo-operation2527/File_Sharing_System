@@ -76,6 +76,11 @@ int main(){
         while(1) {
             // Receive messages from the client
             bytesRcv = recv(clientSocket, buffer, sizeof(buffer), 0);
+
+            if (bytesRcv < 0){
+                std::cout << "SERVER: bytesRcv < 0 error" << std::endl;
+            }
+
             buffer[bytesRcv] = 0;  // Put a 0 at the end so we can display the string
             std::cout << "SERVER: Received client request: " << buffer << std::endl;
 
@@ -142,14 +147,15 @@ int clientUpload(int clientSocket, const char fileName[128], int fileSize){
     return 0;
 }
 
-//BEGIN
 int handleUpload(int serverSocket){
+    // While loop to keep accepting new files being uploaded
+    // Without this loop, server only receives 1 file
     while(1){
         struct sockaddr_in uploadAddress;
         socklen_t uploadSize;
 
-        std::cout << "SERVER: -------------------------" << std::endl;
-        std::cout << "SERVER: Receiving mode" << std::endl;
+        std::cout << "SERVER: --------------------------------" << std::endl;
+        std::cout << "SERVER: --- < Entering Upload Mode > ---" << std::endl;
 
         // Create a file descriptor
         fd_set readfds;
@@ -175,7 +181,11 @@ int handleUpload(int serverSocket){
             std::cout << "SERVER: Thread connected" << std::endl;
 
             FileHeader recvFile;
-            recv(uploadSocket, &recvFile, sizeof(recvFile), 0);
+            int bytesRcv = recv(uploadSocket, &recvFile, sizeof(recvFile), 0);
+
+            if (bytesRcv < 0){
+                std::cout << "SERVER: bytesRcv < 0 error" << std::endl;
+            }
 
             std::cout << "SERVER: File's name is: " << recvFile.fn << std::endl;
             std::cout << "SERVER: File's size is: " << recvFile.fs << std::endl;
@@ -187,7 +197,7 @@ int handleUpload(int serverSocket){
             }).detach();
             
         }else{
-            std::cout << "SERVER: No upload attempt within " << originalTimeout << " seconds. Abort upload mode" << std::endl;
+            std::cout << "SERVER: No upload attempt within " << originalTimeout << " seconds. Exiting upload mode" << std::endl;
             return -1;
         }
     }
