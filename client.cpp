@@ -85,7 +85,7 @@ int main(){
             std::cout << "CLIENT: Enter file's name: ";
             std::getline(std::cin, input);  
 
-            if (input == "abort"){
+            /*if (input == "abort"){
                 std::cout << "CLIENT: Abort uploading mode" << std::endl;
 
                 FileHeader aborting; 
@@ -95,7 +95,7 @@ int main(){
                 connect(uploadSocket, (struct sockaddr *) &serverAddress, sizeof(serverAddress));
                 send(uploadSocket, &aborting, sizeof(aborting), 0);
                 continue;
-            }
+            }*/
 
             // Create a string stream object to input
             std::stringstream ss(input);
@@ -106,7 +106,7 @@ int main(){
             // Loop through the vector
             for(const std::string& str : filesToUpload){
                 // CHeck if the file is regular and exists
-                if(std::filesystem::exists(str) && std::filesystem::is_regular_file(str)){
+                if(input == "abort" || (std::filesystem::exists(str) && std::filesystem::is_regular_file(str))){
                     std::thread(upload, serverAddress, str).detach();
                 }else{
                     std::cout << "CLIENT ERROR: No such file or file irregular" << std::endl;
@@ -126,7 +126,6 @@ int main(){
 
         buffer[bytesRcv] = 0;  // Put a 0 at the end so we can display the string
         std::cout << "CLIENT: Got back response \"" << buffer << "\" from the server" << std::endl;
-        
     }
 
     close(clientSocket);
@@ -136,6 +135,7 @@ int main(){
 
 int upload(struct sockaddr_in serverAddress, std::string input){
     char buffer[maxBufferLength];
+    FileHeader myFile;
 
     // Create a socket just for the upload
     int uploadSocket = socket(AF_INET, SOCK_STREAM, 0);
@@ -152,7 +152,18 @@ int upload(struct sockaddr_in serverAddress, std::string input){
         std::cout << "THREAD ERROR: Could not connect to server" << std::endl;
         return -1;
     }
- 
+
+    // If the input is "abort"
+    if(input == "abort"){
+        std::cout << "CLIENT: Abort uploading mode" << std::endl;
+        // The file's name is "abort". No real file is named like this 
+        strcpy(myFile.fn, "abort");
+        myFile.fs = 0;
+        // Send this fake file to the server. The server will recognize "abort" as a fake file and abort the upload mode
+        int bytesSend = send(uploadSocket, &myFile, sizeof(myFile), 0);
+        return 0;
+    }
+    // Otherwise, continue as normal
     // Open the file (or try to, at least)
     std::ifstream inFile(input, std::ios::binary);
     
@@ -169,9 +180,9 @@ int upload(struct sockaddr_in serverAddress, std::string input){
     inFile.seekg(0, inFile.beg);
     
     // Send file's meta data to server
-    FileHeader myFile; 
     strcpy(myFile.fn, input.c_str());
     myFile.fs = fileSize;
+    
     int bytesSend = send(uploadSocket, &myFile, sizeof(myFile), 0);
 
     if(bytesSend < 0){

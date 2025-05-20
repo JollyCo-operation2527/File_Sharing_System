@@ -188,7 +188,7 @@ int handleUpload(int serverSocket){
             }
 
             if (strcmp(recvFile.fn, "abort") == 0){
-                std::cout << "SERVER: Aborting upload mode" << std::endl;
+                std::cout << "SERVER: --- < Aborting Upload Mode > ---" << std::endl;
                 return 0;
             }
 
