@@ -85,6 +85,18 @@ int main(){
             std::cout << "CLIENT: Enter file's name: ";
             std::getline(std::cin, input);  
 
+            if (input == "abort"){
+                std::cout << "CLIENT: Abort uploading mode" << std::endl;
+
+                FileHeader aborting; 
+                strcpy(aborting.fn, "abort");
+                aborting.fs = 0;
+                int uploadSocket = socket(AF_INET, SOCK_STREAM, 0);
+                connect(uploadSocket, (struct sockaddr *) &serverAddress, sizeof(serverAddress));
+                send(uploadSocket, &aborting, sizeof(aborting), 0);
+                continue;
+            }
+
             // Create a string stream object to input
             std::stringstream ss(input);
             // Split by '/'
@@ -115,10 +127,6 @@ int main(){
         buffer[bytesRcv] = 0;  // Put a 0 at the end so we can display the string
         std::cout << "CLIENT: Got back response \"" << buffer << "\" from the server" << std::endl;
         
-        // This block is moved up
-        /*if((strcmp(buffer, "done") == 0) || (strcmp(buffer, "stop") == 0)){
-            break;
-        }*/ 
     }
 
     close(clientSocket);

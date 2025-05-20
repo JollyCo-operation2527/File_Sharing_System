@@ -162,7 +162,7 @@ int handleUpload(int serverSocket){
         FD_ZERO(&readfds);
         FD_SET(serverSocket, &readfds);
         struct timeval timeout;
-        int originalTimeout = 15;  // Wait 15 seconds for the uploadSocket to connect
+        int originalTimeout = 100;  // Wait 100 seconds for the uploadSocket to connect
         timeout.tv_sec = originalTimeout;    
         timeout.tv_usec = 0;
 
@@ -185,6 +185,11 @@ int handleUpload(int serverSocket){
 
             if (bytesRcv < 0){
                 std::cout << "SERVER: bytesRcv < 0 error" << std::endl;
+            }
+
+            if (strcmp(recvFile.fn, "abort") == 0){
+                std::cout << "SERVER: Aborting upload mode" << std::endl;
+                return 0;
             }
 
             std::cout << "SERVER: File's name is: " << recvFile.fn << std::endl;
