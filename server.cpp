@@ -6,6 +6,7 @@
 #include <fstream>
 #include <sys/time.h>
 #include <thread>
+#include <filesystem>
 
 #define SERVER_PORT 6000
 
@@ -13,6 +14,7 @@
 
 int clientUpload(int, const char[], int);
 int handleUpload(int);
+void createOutputFolder();
 
 // Structure declaration
 struct FileHeader{
@@ -27,6 +29,9 @@ int main(){
     socklen_t addrSize;
     char buffer[30];
     char response[] = "OK" ;
+
+    // Create output folder if there isn't any
+    createOutputFolder();
 
     // Create a server socket
     serverSocket = socket(AF_INET, SOCK_STREAM, 0);
@@ -94,6 +99,9 @@ int main(){
 
             else if (strcmp(buffer, "upload") == 0){
                 // Call the handleUpload function
+                std::cout << "SERVER: --------------------------------" << std::endl;
+                std::cout << "SERVER: --- < Entering Upload Mode > ---" << std::endl;
+
                 std::thread(handleUpload, serverSocket).detach();
             }
         }
@@ -154,9 +162,6 @@ int handleUpload(int serverSocket){
         struct sockaddr_in uploadAddress;
         socklen_t uploadSize;
 
-        std::cout << "SERVER: --------------------------------" << std::endl;
-        std::cout << "SERVER: --- < Entering Upload Mode > ---" << std::endl;
-
         // Create a file descriptor
         fd_set readfds;
         FD_ZERO(&readfds);
@@ -205,5 +210,13 @@ int handleUpload(int serverSocket){
             std::cout << "SERVER: No upload attempt within " << originalTimeout << " seconds. Exiting upload mode" << std::endl;
             return -1;
         }
+    }
+}
+
+void createOutputFolder(){
+    std::filesystem::path dir = "./output/";
+
+    if(!std::filesystem::exists(dir)){
+        std::filesystem::create_directories(dir);
     }
 }
