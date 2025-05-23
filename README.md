@@ -7,6 +7,5 @@ If the goal is to learn, then I think it's worthwhile to tinker with this stuff
 There's nothing much here, for now
 
 How to run:
-    - Make sure to have a directory name "output" in the same directory as the code
     - To send multiple files: separate each file's name with a '/'
 

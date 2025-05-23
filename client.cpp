@@ -16,7 +16,8 @@
 
 #define maxBufferLength 4096
 
-int upload(struct sockaddr_in, std::string);
+int uploadFile(int, std::string);
+void handleUpload(int);
 
 // Structure declaration
 struct FileHeader{
@@ -77,30 +78,8 @@ int main(){
         }
 
         else if (strcmp(buffer, "upload") == 0){
-            std::string input;
-            std::vector<std::string> filesToUpload;
-            std::string file;
-        
-            // Get the user to specify the file's name
-            std::cout << "CLIENT: Enter file's name: ";
-            std::getline(std::cin, input);  
-
-            // Create a string stream object to input
-            std::stringstream ss(input);
-            // Split by '/'
-            while (std::getline(ss, file, '/')){
-                filesToUpload.push_back(file);
-            }
-            // Loop through the vector
-            for(const std::string& str : filesToUpload){
-                // CHeck if the file is regular and exists
-                if(input == "abort" || (std::filesystem::exists(str) && std::filesystem::is_regular_file(str))){
-                    std::thread(upload, serverAddress, str).detach();
-                }else{
-                    std::cout << "CLIENT ERROR: No such file or file irregular" << std::endl;
-                    continue;
-                }
-            }
+            // Call the handleUpload function
+            handleUpload(clientSocket);
         }
 
         // Get response from the server (expecting "OK")
@@ -120,26 +99,36 @@ int main(){
     std::cout << "CLIENT: Shutting down" << std::endl;
 }
 
+void handleUpload(int clientSocket){
+    std::string input, file;
+    std::vector<std::string> filesToUpload;
 
-int upload(struct sockaddr_in serverAddress, std::string input){
+    // Get the user to specify the file's name
+    std::cout << "CLIENT: Enter file's name: ";
+    std::getline(std::cin, input);  
+
+    // Create a string stream object to input
+    std::stringstream ss(input);
+    // Split by ','
+    while (std::getline(ss, file, ',')){
+        filesToUpload.push_back(file);
+    }
+    // Loop through the vector
+    for(const std::string& str : filesToUpload){
+        // CHeck if the file is regular and exists
+        if(input == "abort" || (std::filesystem::exists(str) && std::filesystem::is_regular_file(str))){
+            uploadFile(clientSocket, str);
+        }else{
+            std::cout << "CLIENT ERROR: No such file or file irregular" << std::endl;
+            continue;
+        }
+    }
+}
+
+// This function will upload 1 file
+int uploadFile(int clientSocket, std::string input){
     char buffer[maxBufferLength];
     FileHeader myFile;
-
-    // Create a socket just for the upload
-    int uploadSocket = socket(AF_INET, SOCK_STREAM, 0);
-
-    if (uploadSocket < 0){
-        std::cout << "THREAD ERROR: Could not open socket" << std::endl;
-        exit(-1);
-    }
-
-    // Connect to server
-    int status = connect(uploadSocket, (struct sockaddr *) &serverAddress, sizeof(serverAddress));
-
-    if (status < 0){
-        std::cout << "THREAD ERROR: Could not connect to server" << std::endl;
-        return -1;
-    }
 
     // If the input is "abort"
     if(input == "abort"){
@@ -148,7 +137,7 @@ int upload(struct sockaddr_in serverAddress, std::string input){
         strcpy(myFile.fn, "abort");
         myFile.fs = 0;
         // Send this fake file to the server. The server will recognize "abort" as a fake file and abort the upload mode
-        int bytesSend = send(uploadSocket, &myFile, sizeof(myFile), 0);
+        int bytesSend = send(clientSocket, &myFile, sizeof(myFile), 0);
         return 0;
     }
     // Otherwise, continue as normal
@@ -158,7 +147,6 @@ int upload(struct sockaddr_in serverAddress, std::string input){
     // If cannot open inFile
     if (!inFile){
         std::cout << "CLIENT: Could not open inFile" << std::endl;
-        close(uploadSocket);
         return -1;
     }
 
@@ -171,7 +159,7 @@ int upload(struct sockaddr_in serverAddress, std::string input){
     strcpy(myFile.fn, input.c_str());
     myFile.fs = fileSize;
     
-    int bytesSend = send(uploadSocket, &myFile, sizeof(myFile), 0);
+    int bytesSend = send(clientSocket, &myFile, sizeof(myFile), 0);
 
     if(bytesSend < 0){
         std::cout << "CLIENT: bytesSend < 0 error" << std::endl;
@@ -184,7 +172,7 @@ int upload(struct sockaddr_in serverAddress, std::string input){
         //std::cout << bytesRead << std::endl;
 
         // Sending the data to the server
-        bytesSend = send(uploadSocket, buffer, bytesRead, 0);
+        bytesSend = send(clientSocket, buffer, bytesRead, 0);
 
         if(bytesSend < 0){
             std::cout << "CLIENT: bytesSend < 0 error" << std::endl;
@@ -193,6 +181,7 @@ int upload(struct sockaddr_in serverAddress, std::string input){
 
     std::cout << "File: " << input << " - Done" << std::endl;
 
-    close(uploadSocket);
+    // Wait for the acknowledgement from the server
+
     return 0;
 }
