@@ -182,6 +182,12 @@ int uploadFile(int clientSocket, std::string input){
     std::cout << "File: " << input << " - Done" << std::endl;
 
     // Wait for the acknowledgement from the server
+    char ackBuffer[80];
+    int ackBytes = recv(clientSocket, ackBuffer, sizeof(ackBuffer), 0);
+    if (ackBytes > 0){
+        ackBuffer[ackBytes] = '\0';
+        std::cout << "CLIENT: Server has received the file" << std::endl;
+    }
 
     return 0;
 }
