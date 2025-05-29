@@ -109,8 +109,8 @@ void handleUpload(int clientSocket){
 
     // Create a string stream object to input
     std::stringstream ss(input);
-    // Split by ','
-    while (std::getline(ss, file, ',')){
+    // Split by '/'
+    while (std::getline(ss, file, '/')){
         filesToUpload.push_back(file);
     }
     // Loop through the vector

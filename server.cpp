@@ -12,6 +12,7 @@
 
 #define maxBufferLength 4096
 
+int handleClient(int);
 int clientUpload(int, const char[], int);
 int handleUpload(int);
 void createOutputFolder();
@@ -28,7 +29,6 @@ int main(){
     int status, bytesRcv;
     socklen_t addrSize;
     char buffer[30];
-    char response[] = "OK" ;
 
     // Create output folder if there isn't any
     createOutputFolder();
@@ -72,43 +72,13 @@ int main(){
 
         if (clientSocket < 0){
             std::cout << "SERVER ERROR: Could not accept incoming client connection" << std::endl;
-            exit(-1);
+            continue;
         }
         // If clientSocket != -1
-        std::cout << "SERVER: Received client connection" << std::endl;
+        std::thread(handleClient, clientSocket).detach();
+        /**/
 
-        // Infinite loop to talk to client
-        while(1) {
-            // Receive messages from the client
-            bytesRcv = recv(clientSocket, buffer, sizeof(buffer), 0);
-
-            if (bytesRcv < 0){
-                std::cout << "SERVER: bytesRcv < 0 error" << std::endl;
-            }
-
-            buffer[bytesRcv] = 0;  // Put a 0 at the end so we can display the string
-            std::cout << "SERVER: Received client request: " << buffer << std::endl;
-
-            // Respond with "OK" message
-            std::cout << "SERVER: Sending \"" << response << "\" to client" << std::endl;
-            send(clientSocket, response, strlen(response), 0);
-
-            if((strcmp(buffer, "done") == 0) || (strcmp(buffer, "stop") == 0)){
-                break;
-            }
-
-            else if (strcmp(buffer, "upload") == 0){
-                // Call the handleUpload function
-                std::cout << "SERVER: --------------------------------" << std::endl;
-                std::cout << "SERVER: --- < Entering Upload Mode > ---" << std::endl;
-
-                std::thread(handleUpload, serverSocket).detach();
-            }
-        }
-
-        std::cout << "SERVER: Closing client connection" << std::endl;
-        close(clientSocket);
-
+        // To implement later
         if (strcmp(buffer, "stop") == 0){
             break;
         }
@@ -119,6 +89,80 @@ int main(){
     std::cout << "SERVER: Shutting down" << std::endl;
 }
 
+// Handle each client separately
+int handleClient(int clientSocket){
+    int bytesRcv;
+    char buffer[30];
+    char response[] = "OK" ;
+
+    std::cout << "SERVER: Received client connection" << std::endl;
+
+    // Infinite loop to talk to client
+    while(1) {
+        // Receive messages from the client
+        bytesRcv = recv(clientSocket, buffer, sizeof(buffer), 0);
+
+        if (bytesRcv < 0){
+            std::cout << "SERVER: bytesRcv < 0 error" << std::endl;
+        }
+
+        buffer[bytesRcv] = 0;  // Put a 0 at the end so we can display the string
+        std::cout << "SERVER: Received client request: " << buffer << std::endl;
+
+        // Respond with "OK" message
+        std::cout << "SERVER: Sending \"" << response << "\" to client" << std::endl;
+        send(clientSocket, response, strlen(response), 0);
+
+        if((strcmp(buffer, "done") == 0) || (strcmp(buffer, "stop") == 0)){
+            break;
+        }
+
+        else if (strcmp(buffer, "upload") == 0){
+            // Call the handleUpload function
+            std::cout << "SERVER: --------------------------------" << std::endl;
+            std::cout << "SERVER: --- < Entering Upload Mode > ---" << std::endl;
+
+            handleUpload(clientSocket);
+        }
+    }
+
+    std::cout << "SERVER: Closing client connection" << std::endl;
+    close(clientSocket);
+    return 0;
+}
+
+int handleUpload(int clientSocket){
+    // While loop to keep accepting new files being uploaded
+    int flag = 1;
+    // Without this loop, server only receives 1 file
+    while(1){
+        std::cout << "SERVER: Thread connected" << std::endl;
+
+        FileHeader recvFile;
+        int bytesRcv = recv(clientSocket, &recvFile, sizeof(recvFile), 0);
+
+        if (bytesRcv < 0){
+            std::cout << "SERVER: bytesRcv < 0 error" << std::endl;
+        }
+
+        if (strcmp(recvFile.fn, "abort") == 0){
+            std::cout << "SERVER: --- < Aborting Upload Mode > ---" << std::endl;
+            return 0;
+        }
+
+        std::cout << "SERVER: File's name is: " << recvFile.fn << std::endl;
+        std::cout << "SERVER: File's size is: " << recvFile.fs << std::endl;
+
+        flag = clientUpload(clientSocket, recvFile.fn, recvFile.fs); 
+
+        if (flag == 0){
+            break;
+        }
+    }
+    return 0;
+}
+
+// This function handles upload of 1 file
 int clientUpload(int clientSocket, const char fileName[128], int fileSize){
     int totalBytesRead = 0;
     char buffer[maxBufferLength];
@@ -150,67 +194,17 @@ int clientUpload(int clientSocket, const char fileName[128], int fileSize){
         totalBytesRead += bytesRead;
     }
 
+    // Send the client acknowledgement that the file was received
+    char ackBuffer[80];
+    int ackBytes = send(clientSocket, ackBuffer, sizeof(ackBuffer), 0);
+    if (ackBytes > 0){
+        ackBuffer[ackBytes] = '\0';
+        std::cout << "SERVER: Server has received the file" << std::endl;
+    }
+
     outFile.close();
     std::cout << "SERVER: File closed" << std::endl;
     return 0;
-}
-
-int handleUpload(int serverSocket){
-    // While loop to keep accepting new files being uploaded
-    // Without this loop, server only receives 1 file
-    while(1){
-        struct sockaddr_in uploadAddress;
-        socklen_t uploadSize;
-
-        // Create a file descriptor
-        fd_set readfds;
-        FD_ZERO(&readfds);
-        FD_SET(serverSocket, &readfds);
-        struct timeval timeout;
-        int originalTimeout = 100;  // Wait 100 seconds for the uploadSocket to connect
-        timeout.tv_sec = originalTimeout;    
-        timeout.tv_usec = 0;
-
-        int activity = select(serverSocket + 1, &readfds, NULL, NULL, &timeout);
-
-        // If some socket is ready (activity > 0) and serverSokcet is one of them
-        if(activity > 0 && FD_ISSET(serverSocket, &readfds)){
-            uploadSize = sizeof(uploadAddress);
-            int uploadSocket = accept(serverSocket, (struct sockaddr *) &uploadAddress, &uploadSize);
-
-            if (uploadSocket < 0){
-                std::cout << "SERVER ERROR: Could not accept incoming client connection" << std::endl;
-                return -1;
-            }
-
-            std::cout << "SERVER: Thread connected" << std::endl;
-
-            FileHeader recvFile;
-            int bytesRcv = recv(uploadSocket, &recvFile, sizeof(recvFile), 0);
-
-            if (bytesRcv < 0){
-                std::cout << "SERVER: bytesRcv < 0 error" << std::endl;
-            }
-
-            if (strcmp(recvFile.fn, "abort") == 0){
-                std::cout << "SERVER: --- < Aborting Upload Mode > ---" << std::endl;
-                return 0;
-            }
-
-            std::cout << "SERVER: File's name is: " << recvFile.fn << std::endl;
-            std::cout << "SERVER: File's size is: " << recvFile.fs << std::endl;
-
-            // Spawn a new thread wrapping up in a lambda function and call the clientUpload
-            std::thread([=](){
-                clientUpload(uploadSocket, recvFile.fn, recvFile.fs);
-                close(uploadSocket);
-            }).detach();
-            
-        }else{
-            std::cout << "SERVER: No upload attempt within " << originalTimeout << " seconds. Exiting upload mode" << std::endl;
-            return -1;
-        }
-    }
 }
 
 void createOutputFolder(){
