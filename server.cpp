@@ -28,7 +28,6 @@ int main(){
     struct sockaddr_in  serverAddress, clientAddress;
     int status, bytesRcv;
     socklen_t addrSize;
-    char buffer[30];
 
     // Create output folder if there isn't any
     createOutputFolder();
@@ -78,10 +77,8 @@ int main(){
         std::thread(handleClient, clientSocket).detach();
         /**/
 
-        // To implement later
-        if (strcmp(buffer, "stop") == 0){
-            break;
-        }
+        // To implement later. Server terminate gracefully
+
     }
 
     // Close the server socket
@@ -104,6 +101,7 @@ int handleClient(int clientSocket){
 
         if (bytesRcv < 0){
             std::cout << "SERVER: bytesRcv < 0 error" << std::endl;
+            break;
         }
 
         buffer[bytesRcv] = 0;  // Put a 0 at the end so we can display the string
@@ -133,13 +131,12 @@ int handleClient(int clientSocket){
 
 int handleUpload(int clientSocket){
     // While loop to keep accepting new files being uploaded
-    int flag = 1;
     // Without this loop, server only receives 1 file
     while(1){
-        std::cout << "SERVER: Thread connected" << std::endl;
-
         FileHeader recvFile;
         int bytesRcv = recv(clientSocket, &recvFile, sizeof(recvFile), 0);
+
+        //std::cout << "bytesRcv = " << bytesRcv << std::endl;
 
         if (bytesRcv < 0){
             std::cout << "SERVER: bytesRcv < 0 error" << std::endl;
@@ -150,14 +147,15 @@ int handleUpload(int clientSocket){
             return 0;
         }
 
+        if (strcmp(recvFile.fn, "done") == 0){
+            std::cout << "SERVER: --- < Finishing Upload Mode > ---" << std::endl;
+            return 0;
+        }
+
         std::cout << "SERVER: File's name is: " << recvFile.fn << std::endl;
         std::cout << "SERVER: File's size is: " << recvFile.fs << std::endl;
 
-        flag = clientUpload(clientSocket, recvFile.fn, recvFile.fs); 
-
-        if (flag == 0){
-            break;
-        }
+        clientUpload(clientSocket, recvFile.fn, recvFile.fs); 
     }
     return 0;
 }
@@ -179,7 +177,8 @@ int clientUpload(int clientSocket, const char fileName[128], int fileSize){
     }
 
     while(totalBytesRead < fileSize){
-        int bytesRead = recv(clientSocket, buffer, sizeof(buffer), 0);
+        int bytesToRead = std::min(maxBufferLength, fileSize - totalBytesRead);
+        int bytesRead = recv(clientSocket, buffer, bytesToRead, 0);
 
         if (bytesRead < 0){
             std::cout << "SERVER: Writing error" << std::endl;
@@ -195,11 +194,10 @@ int clientUpload(int clientSocket, const char fileName[128], int fileSize){
     }
 
     // Send the client acknowledgement that the file was received
-    char ackBuffer[80];
-    int ackBytes = send(clientSocket, ackBuffer, sizeof(ackBuffer), 0);
+    const char* ackMsg = "file_received"; 
+    int ackBytes = send(clientSocket, ackMsg, strlen(ackMsg), 0);
     if (ackBytes > 0){
-        ackBuffer[ackBytes] = '\0';
-        std::cout << "SERVER: Server has received the file" << std::endl;
+        std::cout << "SERVER: Server has received file: " << fileName << std::endl;
     }
 
     outFile.close();

@@ -109,14 +109,18 @@ void handleUpload(int clientSocket){
 
     // Create a string stream object to input
     std::stringstream ss(input);
-    // Split by '/'
-    while (std::getline(ss, file, '/')){
+    // Split by ','
+    while (std::getline(ss, file, ',')){
         filesToUpload.push_back(file);
     }
+
+    // Add a string "done" to signal the end of list of files to upload
+    filesToUpload.push_back("done");
+
     // Loop through the vector
     for(const std::string& str : filesToUpload){
         // CHeck if the file is regular and exists
-        if(input == "abort" || (std::filesystem::exists(str) && std::filesystem::is_regular_file(str))){
+        if(input == "abort" || str == "done" || (std::filesystem::exists(str) && std::filesystem::is_regular_file(str))){
             uploadFile(clientSocket, str);
         }else{
             std::cout << "CLIENT ERROR: No such file or file irregular" << std::endl;
@@ -139,6 +143,13 @@ int uploadFile(int clientSocket, std::string input){
         // Send this fake file to the server. The server will recognize "abort" as a fake file and abort the upload mode
         int bytesSend = send(clientSocket, &myFile, sizeof(myFile), 0);
         return 0;
+    }else if (input == "done"){
+        // The file's name is "done". No real file is named like this 
+        strcpy(myFile.fn, "done");
+        myFile.fs = 0;
+        // Send this fake file to the server. The server will recognize "done" as the end of the list of files to upload
+        int bytesSend = send(clientSocket, &myFile, sizeof(myFile), 0);
+        return 0;
     }
     // Otherwise, continue as normal
     // Open the file (or try to, at least)
@@ -152,7 +163,7 @@ int uploadFile(int clientSocket, std::string input){
 
     // Get the size of the file
     inFile.seekg(0, inFile.end);
-    int fileSize = inFile.tellg();
+    uint32_t fileSize = inFile.tellg();
     inFile.seekg(0, inFile.beg);
     
     // Send file's meta data to server
@@ -160,6 +171,8 @@ int uploadFile(int clientSocket, std::string input){
     myFile.fs = fileSize;
     
     int bytesSend = send(clientSocket, &myFile, sizeof(myFile), 0);
+
+    std::cout << "File: " << myFile.fn << " - " << myFile.fs << std::endl;
 
     if(bytesSend < 0){
         std::cout << "CLIENT: bytesSend < 0 error" << std::endl;
@@ -186,7 +199,7 @@ int uploadFile(int clientSocket, std::string input){
     int ackBytes = recv(clientSocket, ackBuffer, sizeof(ackBuffer), 0);
     if (ackBytes > 0){
         ackBuffer[ackBytes] = '\0';
-        std::cout << "CLIENT: Server has received the file" << std::endl;
+        std::cout << "CLIENT: Server has received file: " << myFile.fn << std::endl;
     }
 
     return 0;

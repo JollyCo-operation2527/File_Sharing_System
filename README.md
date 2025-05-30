@@ -17,5 +17,5 @@ How to run:
 
 ~~~    - type "upload" to go into upload mode, type "stop" to shut down client and server 
 
-~~~    - To send multiple files: separate each file's name with a '/'
+~~~    - To send multiple files: separate each file's name with a ','
 
