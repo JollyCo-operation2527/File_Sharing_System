@@ -11,11 +11,11 @@ If the goal is to learn, then I think it's worthwhile to tinker with this stuff.
 There's nothing much here, for now.
 
 How to run:
-~~~    - Type 'make' to compile code 
+   - Type 'make' to compile code 
 
-~~~    - Run the server (./sv) and the client (./cl) 
+   - Run the server (./sv) and the client (./cl) 
 
-~~~    - type "upload" to go into upload mode, type "stop" to shut down client and server 
+   - type "upload" to go into upload mode, type "stop" to shut down client and server 
 
-~~~    - To send multiple files: separate each file's name with a ','
+   - To send multiple files: separate each file's name with a ','
 
