@@ -73,7 +73,7 @@ int main(){
             std::cout << "CLIENT: bytesSend < 0 error" << std::endl;
         }
 
-        if ((strcmp(buffer, "done") == 0) || (strcmp(buffer, "stop") == 0)){
+        if (strcmp(buffer, "stop") == 0){
             break;
         }
 
@@ -115,8 +115,10 @@ void handleUpload(int clientSocket){
     }
 
     // Add a string "done" to signal the end of list of files to upload
-    filesToUpload.push_back("done");
-
+    if(input != "abort"){
+        filesToUpload.push_back("done");
+    }
+    
     // Loop through the vector
     for(const std::string& str : filesToUpload){
         // CHeck if the file is regular and exists
