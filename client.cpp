@@ -150,6 +150,7 @@ int uploadFile(int clientSocket, std::string input){
         strcpy(myFile.fn, "done");
         myFile.fs = 0;
         // Send this fake file to the server. The server will recognize "done" as the end of the list of files to upload
+        std::cout << "CLIENT: Sending \"Done\"" << std::endl;
         int bytesSend = send(clientSocket, &myFile, sizeof(myFile), 0);
         return 0;
     }

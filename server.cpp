@@ -7,6 +7,8 @@
 #include <sys/time.h>
 #include <thread>
 #include <filesystem>
+#include <csignal>
+#include <atomic>
 
 #define SERVER_PORT 6000
 
@@ -16,6 +18,7 @@ int handleClient(int);
 int clientUpload(int, const char[], int);
 int handleUpload(int);
 void createOutputFolder();
+void signalHandler(int);
 
 // Structure declaration
 struct FileHeader{
@@ -23,11 +26,38 @@ struct FileHeader{
     uint32_t fs;   // File's size
 };
 
+// Initialize serverSocket to -1 (to safely handle handle in the signalHangler() function)
+int serverSocket = -1;
+
+// create an atomic flag to keep the server running in main
+std::atomic<bool> keepRunning(true);
+
+void signalHandler(int signum){
+    std::cout << "SERVER: SIGINT detected. Shutting down server" << std::endl;
+    keepRunning = false;
+    // Only shutdown server is serverSocket has been properly created
+    if(serverSocket != -1){
+        shutdown(serverSocket, SHUT_RDWR);  // Force shutdown so that the code doesn't wait for accept() in main
+        close(serverSocket);
+    }
+}
+
+void createOutputFolder(){
+    std::filesystem::path dir = "./output/";
+
+    if(!std::filesystem::exists(dir)){
+        std::filesystem::create_directories(dir);
+    }
+}
+
 int main(){
-    int serverSocket, clientSocket;
+    int clientSocket;
     struct sockaddr_in  serverAddress, clientAddress;
     int status, bytesRcv;
     socklen_t addrSize;
+
+    // Register the SIGINT handler
+    signal(SIGINT, signalHandler);
 
     // Create output folder if there isn't any
     createOutputFolder();
@@ -65,25 +95,23 @@ int main(){
     std::cout << "SERVER: READY" << std::endl;
 
     // Wait for clients
-    while(1){
+    while(keepRunning){
         addrSize = sizeof(clientAddress);
         clientSocket = accept(serverSocket, (struct sockaddr *) &clientAddress, &addrSize);
 
         if (clientSocket < 0){
+            if(!keepRunning){
+                break;
+            }
             std::cout << "SERVER ERROR: Could not accept incoming client connection" << std::endl;
             continue;
         }
         // If clientSocket != -1
         std::thread(handleClient, clientSocket).detach();
-        /**/
-
-        // To implement later. Server terminate gracefully
-
     }
 
-    // Close the server socket
-    close(serverSocket);
-    std::cout << "SERVER: Shutting down" << std::endl;
+    // Server shutdown after SIGINT
+    std::cout << "SERVER: Server shutdown" << std::endl;
 }
 
 // Handle each client separately
@@ -205,10 +233,3 @@ int clientUpload(int clientSocket, const char fileName[128], int fileSize){
     return 0;
 }
 
-void createOutputFolder(){
-    std::filesystem::path dir = "./output/";
-
-    if(!std::filesystem::exists(dir)){
-        std::filesystem::create_directories(dir);
-    }
-}
