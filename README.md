@@ -13,9 +13,9 @@ There's nothing much here, for now.
 How to run:
    - Type 'make' to compile code 
 
-   - Run the server (./sv) and the client (./cl) 
+   - Run the server (./sv) and the client (./cl) (can connect multiple clients at once)
 
-   - type "upload" to go into upload mode, type "stop" to shut down client and server 
+   - type "upload" to go into upload mode, type "stop" to shut down client. Ctrl + C to shutdown server 
 
    - To send multiple files: separate each file's name with a ','
 
