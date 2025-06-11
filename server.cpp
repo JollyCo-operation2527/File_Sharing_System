@@ -19,23 +19,26 @@ int clientUpload(int, const char[], int);
 int handleUpload(int);
 void createOutputFolder();
 void signalHandler(int);
+int clientDownload(int, const char[], int);
+int handleDownload(int);
 
 // Structure declaration
 struct FileHeader{
     char fn[128];  // File's name
-    uint32_t fs;   // File's size
+    int fs;        // File's size
 };
 
 // Initialize serverSocket to -1 (to safely handle handle in the signalHangler() function)
 int serverSocket = -1;
 
 // create an atomic flag to keep the server running in main
+// This flag should be atomic because "Ctrl + C"  could be pressed at any moment
 std::atomic<bool> keepRunning(true);
 
 void signalHandler(int signum){
     std::cout << "SERVER: SIGINT detected. Shutting down server" << std::endl;
     keepRunning = false;
-    // Only shutdown server is serverSocket has been properly created
+    // Only shutdown server if serverSocket has been properly created
     if(serverSocket != -1){
         shutdown(serverSocket, SHUT_RDWR);  // Force shutdown so that the code doesn't wait for accept() in main
         close(serverSocket);
@@ -150,6 +153,14 @@ int handleClient(int clientSocket){
 
             handleUpload(clientSocket);
         }
+
+        else if (strcmp(buffer, "download") == 0){
+            // Call the handleDownload function
+            std::cout << "SERVER: --------------------------------" << std::endl;
+            std::cout << "SERVER: --- < Entering Download Mode > ---" << std::endl;
+
+            handleDownload(clientSocket);
+        }
     }
 
     std::cout << "SERVER: Closing client connection" << std::endl;
@@ -233,3 +244,12 @@ int clientUpload(int clientSocket, const char fileName[128], int fileSize){
     return 0;
 }
 
+//
+int handleDownload(int clientSocket){
+    // While loop to keep accepting new files being downloaded from clients
+    // Without this loop, server only processes 1 file
+    while(1){
+        
+    }
+    return 0;
+}

@@ -16,14 +16,25 @@
 
 #define maxBufferLength 4096
 
+void createDownloadFolder();
 int uploadFile(int, std::string);
 void handleUpload(int);
+void handleDownload(int);
+int downloadFile(int, std::string);
 
 // Structure declaration
 struct FileHeader{
     char fn[128];  // File's name
-    uint32_t fs;   // File's size
+    int fs;        // File's size
 };
+
+void createDownloadFolder(){
+    std::filesystem::path dir = "./download/";
+
+    if(!std::filesystem::exists(dir)){
+        std::filesystem::create_directories(dir);
+    }
+}
 
 int main(){
     int clientSocket;
@@ -31,6 +42,9 @@ int main(){
     int status, bytesRcv;
     std::string inStr;   // Store input from keyboard
     char buffer[80];     // Store input from keyboard
+
+    // Create a download folder if there is none
+    createDownloadFolder();
 
     // Create a client socket
     clientSocket = socket(AF_INET, SOCK_STREAM, 0);
@@ -80,6 +94,11 @@ int main(){
         else if (strcmp(buffer, "upload") == 0){
             // Call the handleUpload function
             handleUpload(clientSocket);
+        }
+
+        else if (strcmp(buffer, "download") == 0){
+            // Call the handleDownload function
+            handleDownload(clientSocket);
         }
 
         // Get response from the server (expecting "OK")
@@ -205,5 +224,101 @@ int uploadFile(int clientSocket, std::string input){
         std::cout << "CLIENT: Server has received file: " << myFile.fn << std::endl;
     }
 
+    return 0;
+}
+
+void handleDownload(int clientSocket){
+    std::string input, file;
+    std::vector<std::string> filesToDownload;
+
+    // Get the user to specify the file's name
+    std::cout << "CLIENT: Enter file's name: ";
+    std::getline(std::cin, input);  
+
+    // Create a string stream object to input
+    std::stringstream ss(input);
+    // Split by ','
+    while (std::getline(ss, file, ',')){
+        filesToDownload.push_back(file);
+    }
+
+    // Add a string "done" to signal the end of list of files to download
+    if(input != "abort"){
+        filesToUpload.push_back("done");
+    }
+    
+    // Loop through the vector
+    for(const std::string& str : filesToDownload){
+        if(str == "abort"){
+            std::cout << "CLIENT: Aborting Download Mode" << std::endl;
+            break;
+        }else{
+            downloadFile(clientSocket, str);
+        }
+    }
+}
+
+// This function will download 1 file
+int downloadFile(int clientSocket, std::string input){
+    int totalBytesRead = 0;
+    char buffer[maxBufferLength];
+    FileHeader recvFile;
+
+    // Send the file's name to the server to request that file
+    int requestFile = send(clientSocket, input.c_str(), str.size(), 0);
+
+    // And if requestFile < 0 ?
+
+    // Receive the file's meta data
+    int bytesRcv = recv(clientSocket, &recvFile, sizeof(recvFile), 0);
+
+    std::string fullPath = "./download/";
+    fullPath += recvFile.fn;
+
+    std::cout << "CLIENT: Client downloading" << std::endl;
+
+    // Debugging purpose
+    std::cout << "CLIENT: File's name is: " << recvFile.fn << std::endl;
+    std::cout << "CLIENT: File's size is: " << recvFile.fs << std::endl;
+    // Debugging purpose
+
+    if (recvFile.fn == "done"){
+        return 0;
+    }
+
+    std::ofstream downFile(fullPath, std::ofstream::binary);
+
+    if (!downFile){
+        std::cout << "CLIENT: Could not write downFile" << std::endl;
+        return -1;
+    }
+
+    // Write the file to download folder
+    while(totalBytesRead < recvFile.fs){
+        int bytesToRead = std::min(maxBufferLength, recvFile.fs - totalBytesRead);
+        int bytesRead = recv(clientSocket, buffer, bytesToRead, 0);
+
+        if (bytesRead < 0){
+            std::cout << "CLIENT: Writing error" << std::endl;
+            break;
+        }
+        
+        // What if bytesRead < 0 (could happen due to error)
+
+        //std::cout << "total bytes read = " << totalBytesRead << std::endl; 
+
+        downFile.write(buffer, bytesRead);
+        totalBytesRead += bytesRead;
+    }
+
+    // Send the client acknowledgement that the file was received
+    const char* ackMsg = "file_received"; 
+    int ackBytes = send(clientSocket, ackMsg, strlen(ackMsg), 0);
+    if (ackBytes > 0){
+        std::cout << "CLIENT: Client has downloaded file: " << recvFile.fn << std::endl;
+    }
+
+    downFile.close();
+    std::cout << "CLIENT: File closed" << std::endl;
     return 0;
 }
