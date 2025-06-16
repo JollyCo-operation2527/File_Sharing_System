@@ -19,3 +19,5 @@ How to run:
 
    - To send multiple files: separate each file's name with a ','
 
+
+Future features include: download, pause and resume, authentication, peer discovery, etc
