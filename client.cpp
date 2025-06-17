@@ -244,7 +244,7 @@ void handleDownload(int clientSocket){
 
     // Add a string "done" to signal the end of list of files to download
     if(input != "abort"){
-        filesToUpload.push_back("done");
+        filesToDownload.push_back("done");
     }
     
     // Loop through the vector
@@ -265,7 +265,7 @@ int downloadFile(int clientSocket, std::string input){
     FileHeader recvFile;
 
     // Send the file's name to the server to request that file
-    int requestFile = send(clientSocket, input.c_str(), str.size(), 0);
+    int requestFile = send(clientSocket, input.c_str(), input.size(), 0);  
 
     // And if requestFile < 0 ?
 
@@ -311,7 +311,7 @@ int downloadFile(int clientSocket, std::string input){
         totalBytesRead += bytesRead;
     }
 
-    // Send the client acknowledgement that the file was received
+    // Send the server acknowledgement that the file was received
     const char* ackMsg = "file_received"; 
     int ackBytes = send(clientSocket, ackMsg, strlen(ackMsg), 0);
     if (ackBytes > 0){
