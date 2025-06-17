@@ -137,7 +137,6 @@ int handleClient(int clientSocket){
 
         buffer[bytesRcv] = 0;  // Put a 0 at the end so we can display the string
         std::cout << "SERVER: Received client request: " << buffer << std::endl;
-
         // Respond with "OK" message
         std::cout << "SERVER: Sending \"" << response << "\" to client" << std::endl;
         send(clientSocket, response, strlen(response), 0);
@@ -320,7 +319,7 @@ int handleDownload(int clientSocket){
             int ackBytes = recv(clientSocket, ackBuffer, sizeof(ackBuffer), 0);
             if (ackBytes > 0){
                 ackBuffer[ackBytes] = '\0';
-                std::cout << "SERVER: Client has received file: " << requestFile.fn << std::endl;
+                std::cout << "SERVER: Client received file " << requestFile.fn << std::endl;
             }
         }
         else{

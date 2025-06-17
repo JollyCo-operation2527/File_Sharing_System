@@ -247,12 +247,24 @@ void handleDownload(int clientSocket){
         filesToDownload.push_back("done");
     }
     
+    bool flag = true;
     // Loop through the vector
     for(const std::string& str : filesToDownload){
         if(str == "abort"){
             std::cout << "CLIENT: Aborting Download Mode" << std::endl;
             break;
         }else{
+            // Do this only in the first loop to deal with the "OK" response from server
+            if(flag){
+                char okBuffer[10];
+                int okBytes = recv(clientSocket, okBuffer, sizeof(okBuffer) - 1, 0);
+
+                if (okBytes > 0){
+                    okBuffer[okBytes] = '\0';
+                    std::cout << "CLIENT: Receive response from server: " << okBuffer << std::endl;
+                }
+                flag = 0;
+            }
             downloadFile(clientSocket, str);
         }
     }
@@ -269,6 +281,11 @@ int downloadFile(int clientSocket, std::string input){
 
     // And if requestFile < 0 ?
 
+    // if input is "done", this is the end of filesToDownload
+    if (input == "done"){
+        return 0;
+    }
+
     // Receive the file's meta data
     int bytesRcv = recv(clientSocket, &recvFile, sizeof(recvFile), 0);
 
@@ -281,10 +298,6 @@ int downloadFile(int clientSocket, std::string input){
     std::cout << "CLIENT: File's name is: " << recvFile.fn << std::endl;
     std::cout << "CLIENT: File's size is: " << recvFile.fs << std::endl;
     // Debugging purpose
-
-    if (recvFile.fn == "done"){
-        return 0;
-    }
 
     std::ofstream downFile(fullPath, std::ofstream::binary);
 
@@ -315,7 +328,7 @@ int downloadFile(int clientSocket, std::string input){
     const char* ackMsg = "file_received"; 
     int ackBytes = send(clientSocket, ackMsg, strlen(ackMsg), 0);
     if (ackBytes > 0){
-        std::cout << "CLIENT: Client has downloaded file: " << recvFile.fn << std::endl;
+        std::cout << "CLIENT: File " << recvFile.fn << " received" << std::endl;
     }
 
     downFile.close();
