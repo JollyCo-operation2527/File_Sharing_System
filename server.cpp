@@ -19,7 +19,6 @@ int clientUpload(int, const char[], int);
 int handleUpload(int);
 void createOutputFolder();
 void signalHandler(int);
-int clientDownload(int, const char[], int);
 int handleDownload(int);
 
 // Structure declaration
@@ -137,7 +136,6 @@ int handleClient(int clientSocket){
 
         buffer[bytesRcv] = 0;  // Put a 0 at the end so we can display the string
         std::cout << "SERVER: Received client request: " << buffer << std::endl;
-
         // Respond with "OK" message
         std::cout << "SERVER: Sending \"" << response << "\" to client" << std::endl;
         send(clientSocket, response, strlen(response), 0);
@@ -160,6 +158,7 @@ int handleClient(int clientSocket){
             std::cout << "SERVER: --- < Entering Download Mode > ---" << std::endl;
 
             handleDownload(clientSocket);
+            send(clientSocket, response, strlen(response), 0);
         }
     }
 
@@ -244,12 +243,98 @@ int clientUpload(int clientSocket, const char fileName[128], int fileSize){
     return 0;
 }
 
-//
+// This function will handle all of the download feature
 int handleDownload(int clientSocket){
     // While loop to keep accepting new files being downloaded from clients
     // Without this loop, server only processes 1 file
+    char buffer[maxBufferLength];
+    int bytesSend;
+    FileHeader requestFile;
+
     while(1){
-        
+        // Flush the buffer
+        memset(buffer, 0, sizeof(buffer));
+
+        // Server receives files' names from the client (clients request these files)
+        int downFile = recv(clientSocket, buffer, sizeof(buffer), 0);
+
+        // what if downFile < 0 ?
+
+        std::cout << "SERVER: The requested file is: " << buffer << std::endl;
+
+        if (strcmp(buffer, "done") == 0 || std::filesystem::exists(buffer) && std::filesystem::is_regular_file(buffer)){
+            // if buffer == "done". No real file's name is like this so the server will understand this is a signal to stop
+            if (strcmp(buffer, "done") == 0){
+                break;
+            }
+
+            // Otherwise, proceed as usual
+            // Open the file (or try to, at least)
+            std::ifstream inFile(buffer, std::ios::binary);
+
+            // If cannot open inFile
+            if (!inFile){
+                std::cout << "CLIENT: Could not open inFile" << std::endl;
+                return -1;
+            }
+            
+            // Get the size of the file
+            inFile.seekg(0, inFile.end);
+            int fileSize = inFile.tellg();
+            inFile.seekg(0, inFile.beg);
+            
+            // Send file's meta data to client
+            strcpy(requestFile.fn, buffer);
+            requestFile.fs = fileSize;
+            bytesSend = send(clientSocket, &requestFile, sizeof(requestFile), 0);
+
+            if(bytesSend < 0){
+                std::cout << "CLIENT: bytesSend < 0 error" << std::endl;
+            }
+
+            std::cout << "SERVER: Sent metadata of file " << requestFile.fn << " to client" << std::endl;
+
+            if(bytesSend < 0){
+                std::cout << "CLIENT: bytesSend < 0 error" << std::endl;
+            }
+
+            // Read inFile into buffer
+            while (inFile.read(buffer, maxBufferLength) || inFile.gcount() > 0){
+                std::streamsize bytesRead = inFile.gcount();
+
+                //std::cout << bytesRead << std::endl;
+
+                // Sending the data to the client
+                bytesSend = send(clientSocket, buffer, bytesRead, 0);
+
+                if(bytesSend < 0){
+                    std::cout << "SERVER: bytesSend < 0 error" << std::endl;
+                }
+            }
+
+            std::cout << "File: " << requestFile.fn << " - Done" << std::endl;
+
+            // Wait for the acknowledgement from the client
+            char ackBuffer[80];
+            int ackBytes = recv(clientSocket, ackBuffer, sizeof(ackBuffer), 0);
+            if (ackBytes > 0){
+                ackBuffer[ackBytes] = '\0';
+                std::cout << "SERVER: Client received file " << requestFile.fn << std::endl;
+            }
+        }
+        else{
+            std::cout << "SERVER: File requested does not exist or inaccessible" << std::endl;
+            // Send "done" - which is a fake file to let the client know that the file does not exist
+            strcpy(requestFile.fn, "done");
+            requestFile.fs = 0;
+            bytesSend = send(clientSocket, &requestFile, sizeof(requestFile), 0);
+
+            return -1;
+        }
     }
+
+    std::cout << "SERVER: --- < Finishing Download Mode > ---" << std::endl;
     return 0;
 }
+
+
