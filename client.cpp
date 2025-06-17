@@ -277,7 +277,7 @@ int downloadFile(int clientSocket, std::string input){
     FileHeader recvFile;
 
     // Send the file's name to the server to request that file
-    int requestFile = send(clientSocket, input.c_str(), input.size(), 0);  
+    int requestFile = send(clientSocket, input.c_str(), input.size() + 1, 0);  
 
     // And if requestFile < 0 ?
 

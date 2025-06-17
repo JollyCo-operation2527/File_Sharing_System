@@ -19,7 +19,6 @@ int clientUpload(int, const char[], int);
 int handleUpload(int);
 void createOutputFolder();
 void signalHandler(int);
-int clientDownload(int, const char[], int);
 int handleDownload(int);
 
 // Structure declaration
@@ -159,6 +158,7 @@ int handleClient(int clientSocket){
             std::cout << "SERVER: --- < Entering Download Mode > ---" << std::endl;
 
             handleDownload(clientSocket);
+            send(clientSocket, response, strlen(response), 0);
         }
     }
 
@@ -243,7 +243,7 @@ int clientUpload(int clientSocket, const char fileName[128], int fileSize){
     return 0;
 }
 
-//
+// This function will handle all of the download feature
 int handleDownload(int clientSocket){
     // While loop to keep accepting new files being downloaded from clients
     // Without this loop, server only processes 1 file
@@ -323,7 +323,7 @@ int handleDownload(int clientSocket){
             }
         }
         else{
-            std::cout << "SERVER: File requested does not exist or inaccessible" << buffer << std::endl;
+            std::cout << "SERVER: File requested does not exist or inaccessible" << std::endl;
             // Send "done" - which is a fake file to let the client know that the file does not exist
             strcpy(requestFile.fn, "done");
             requestFile.fs = 0;
