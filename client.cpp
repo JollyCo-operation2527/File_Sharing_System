@@ -289,6 +289,12 @@ int downloadFile(int clientSocket, std::string input){
     // Receive the file's meta data
     int bytesRcv = recv(clientSocket, &recvFile, sizeof(recvFile), 0);
 
+    // If fake file, return
+    if (strcmp(recvFile.fn, "done") == 0){
+        std::cout << "CLIENT: File requested does not exist or inaccessible" << std::endl;
+        return 0;
+    }
+
     std::string fullPath = "./download/";
     fullPath += recvFile.fn;
 

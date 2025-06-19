@@ -329,7 +329,7 @@ int handleDownload(int clientSocket){
             requestFile.fs = 0;
             bytesSend = send(clientSocket, &requestFile, sizeof(requestFile), 0);
 
-            return -1;
+            continue;
         }
     }
 
