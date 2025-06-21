@@ -252,6 +252,8 @@ void handleDownload(int clientSocket){
     for(const std::string& str : filesToDownload){
         if(str == "abort"){
             std::cout << "CLIENT: Aborting Download Mode" << std::endl;
+            // Send "abort" string to the server
+            send(clientSocket, str.c_str(), str.size(), 0);
             break;
         }else{
             // Do this only in the first loop to deal with the "OK" response from server

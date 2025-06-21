@@ -154,7 +154,7 @@ int handleClient(int clientSocket){
 
         else if (strcmp(buffer, "download") == 0){
             // Call the handleDownload function
-            std::cout << "SERVER: --------------------------------" << std::endl;
+            std::cout << "SERVER: ----------------------------------" << std::endl;
             std::cout << "SERVER: --- < Entering Download Mode > ---" << std::endl;
 
             handleDownload(clientSocket);
@@ -261,6 +261,11 @@ int handleDownload(int clientSocket){
         // what if downFile < 0 ?
 
         std::cout << "SERVER: The requested file is: " << buffer << std::endl;
+
+        if(strcmp(buffer, "abort") == 0){
+            std::cout << "SERVER: --- < Aborting Download Mode > ---" << std::endl;
+            return 0;
+        }
 
         if (strcmp(buffer, "done") == 0 || std::filesystem::exists(buffer) && std::filesystem::is_regular_file(buffer)){
             // if buffer == "done". No real file's name is like this so the server will understand this is a signal to stop
