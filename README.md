@@ -15,9 +15,9 @@ How to run:
 
    - Run the server (./sv) and the client (./cl) (can connect multiple clients at once)
 
-   - type "upload" to go into upload mode, type "stop" to shut down client. Ctrl + C to shutdown server 
+   - Type "upload" to go into upload mode, "download" to go into download mode, type "stop" to shut down client. Ctrl + C to shutdown server 
 
    - To send multiple files: separate each file's name with a ','
 
 
-Future features include: download, pause and resume, authentication, peer discovery, etc
+Future features include: pause and resume, authentication, peer discovery, etc
