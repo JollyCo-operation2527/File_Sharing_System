@@ -219,11 +219,9 @@ int clientUpload(int clientSocket, const char fileName[128], int fileSize){
         int bytesRead = recv(clientSocket, buffer, bytesToRead, 0);
 
         if (bytesRead < 0){
-            std::cout << "SERVER: Writing error" << std::endl;
+            std::cout << "SERVER: Writing error (bytesRead < 0)" << std::endl;
             break;
         }
-        
-        // What if bytesRead < 0 (could happen due to error)
 
         //std::cout << "total bytes read = " << totalBytesRead << std::endl; 
 
@@ -258,7 +256,9 @@ int handleDownload(int clientSocket){
         // Server receives files' names from the client (clients request these files)
         int downFile = recv(clientSocket, buffer, sizeof(buffer), 0);
 
-        // what if downFile < 0 ?
+        if (downFile < 0){
+            std::cout << "SERVER: downFile < 0 error" << std::endl;
+        }
 
         std::cout << "SERVER: The requested file is: " << buffer << std::endl;
 
@@ -333,6 +333,10 @@ int handleDownload(int clientSocket){
             strcpy(requestFile.fn, "done");
             requestFile.fs = 0;
             bytesSend = send(clientSocket, &requestFile, sizeof(requestFile), 0);
+
+            if (bytesSend < 0){
+                std::cout << "SERVER: bytesSend < 0 error" << std::endl;
+            }
 
             continue;
         }

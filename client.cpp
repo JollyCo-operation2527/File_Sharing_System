@@ -197,7 +197,7 @@ int uploadFile(int clientSocket, std::string input){
     std::cout << "File: " << myFile.fn << " - " << myFile.fs << std::endl;
 
     if(bytesSend < 0){
-        std::cout << "CLIENT: bytesSend < 0 error" << std::endl;
+        std::cout << "CLIENT: bytesSend < 0 error (1)" << std::endl;
     }
 
     // Read inFile into buffer
@@ -210,7 +210,7 @@ int uploadFile(int clientSocket, std::string input){
         bytesSend = send(clientSocket, buffer, bytesRead, 0);
 
         if(bytesSend < 0){
-            std::cout << "CLIENT: bytesSend < 0 error" << std::endl;
+            std::cout << "CLIENT: bytesSend < 0 error (2)" << std::endl;
         }
     }
 
@@ -281,7 +281,9 @@ int downloadFile(int clientSocket, std::string input){
     // Send the file's name to the server to request that file
     int requestFile = send(clientSocket, input.c_str(), input.size() + 1, 0);  
 
-    // And if requestFile < 0 ?
+    if (requestFile < 0){
+        std::cout << "CLIENT: requestFile < 0 error" << std::endl;
+    }
 
     // if input is "done", this is the end of filesToDownload
     if (input == "done"){
@@ -323,8 +325,6 @@ int downloadFile(int clientSocket, std::string input){
             std::cout << "CLIENT: Writing error" << std::endl;
             break;
         }
-        
-        // What if bytesRead < 0 (could happen due to error)
 
         //std::cout << "total bytes read = " << totalBytesRead << std::endl; 
 
