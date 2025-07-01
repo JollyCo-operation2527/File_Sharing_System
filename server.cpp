@@ -9,6 +9,8 @@
 #include <filesystem>
 #include <csignal>
 #include <atomic>
+#include <ctime>
+#include <mutex>
 
 #define SERVER_PORT 6000
 
@@ -20,6 +22,7 @@ int handleUpload(int);
 void createOutputFolder();
 void signalHandler(int);
 int handleDownload(int);
+void log(const std::string&);
 
 // Structure declaration
 struct FileHeader{
@@ -34,8 +37,81 @@ int serverSocket = -1;
 // This flag should be atomic because "Ctrl + C"  could be pressed at any moment
 std::atomic<bool> keepRunning(true);
 
+// Declare logFile
+std::ofstream logFile("logServer.txt", std::ios::app);
+std::mutex logMutex;
+
+int main(){
+    int clientSocket;
+    struct sockaddr_in  serverAddress, clientAddress;
+    int status, bytesRcv;
+    socklen_t addrSize;
+
+    // This is the start of new log
+    log("===============================================================================");
+
+    // Register the SIGINT handler
+    signal(SIGINT, signalHandler);
+
+    // Create output folder if there isn't any
+    createOutputFolder();
+
+    // Create a server socket
+    serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+
+    if (serverSocket < 0){
+        log("SERVER ERROR: Could not open socket");
+        exit(-1);
+    }
+
+    // Setup server address
+    memset(&serverAddress, 0, sizeof(serverAddress));
+    serverAddress.sin_family = AF_INET;
+    serverAddress.sin_addr.s_addr = htonl(INADDR_ANY);
+    serverAddress.sin_port = htons((unsigned short) SERVER_PORT);
+
+    // Bind the server socket
+    status = bind(serverSocket, (struct sockaddr *) &serverAddress, sizeof(serverAddress));
+
+    if (status < 0){
+        log("SERVER ERROR: Could not bind socket");
+        exit(-1);
+    }
+
+    // Listen up to 10 clients
+    status = listen(serverSocket, 10);
+
+    if (status < 0){
+        log("SERVER ERROR: Could not listen on socket");
+        exit(-1);
+    }
+
+    std::cout << "SERVER: READY" << std::endl;
+    log("SERVER: READY");
+
+    // Wait for clients
+    while(keepRunning){
+        addrSize = sizeof(clientAddress);
+        clientSocket = accept(serverSocket, (struct sockaddr *) &clientAddress, &addrSize);
+
+        if (clientSocket < 0){
+            if(!keepRunning){
+                break;
+            }
+            log("SERVER ERROR: Could not accept incoming client connection");
+            continue;
+        }
+        // If clientSocket != -1
+        std::thread(handleClient, clientSocket).detach();
+    }
+
+    // Server shutdown after SIGINT
+    std::cout << "SERVER: Server shutdown" << std::endl;
+    log("SERVER: Server shutdown");
+}
+
 void signalHandler(int signum){
-    std::cout << "SERVER: SIGINT detected. Shutting down server" << std::endl;
+    log("SERVER: SIGINT detected. Shutting down server");
     keepRunning = false;
     // Only shutdown server if serverSocket has been properly created
     if(serverSocket != -1){
@@ -52,70 +128,6 @@ void createOutputFolder(){
     }
 }
 
-int main(){
-    int clientSocket;
-    struct sockaddr_in  serverAddress, clientAddress;
-    int status, bytesRcv;
-    socklen_t addrSize;
-
-    // Register the SIGINT handler
-    signal(SIGINT, signalHandler);
-
-    // Create output folder if there isn't any
-    createOutputFolder();
-
-    // Create a server socket
-    serverSocket = socket(AF_INET, SOCK_STREAM, 0);
-
-    if (serverSocket < 0){
-        std::cout << "SERVER ERROR: Could not open socket" << std::endl;
-        exit(-1);
-    }
-
-    // Setup server address
-    memset(&serverAddress, 0, sizeof(serverAddress));
-    serverAddress.sin_family = AF_INET;
-    serverAddress.sin_addr.s_addr = htonl(INADDR_ANY);
-    serverAddress.sin_port = htons((unsigned short) SERVER_PORT);
-
-    // Bind the server socket
-    status = bind(serverSocket, (struct sockaddr *) &serverAddress, sizeof(serverAddress));
-
-    if (status < 0){
-        std::cout << "SERVER ERROR: Could not bind socket" << std::endl;
-        exit(-1);
-    }
-
-    // Listen up to 10 clients
-    status = listen(serverSocket, 10);
-
-    if (status < 0){
-        std::cout << "SERVER ERROR: Could not listen on socket" << std::endl;
-        exit(-1);
-    }
-
-    std::cout << "SERVER: READY" << std::endl;
-
-    // Wait for clients
-    while(keepRunning){
-        addrSize = sizeof(clientAddress);
-        clientSocket = accept(serverSocket, (struct sockaddr *) &clientAddress, &addrSize);
-
-        if (clientSocket < 0){
-            if(!keepRunning){
-                break;
-            }
-            std::cout << "SERVER ERROR: Could not accept incoming client connection" << std::endl;
-            continue;
-        }
-        // If clientSocket != -1
-        std::thread(handleClient, clientSocket).detach();
-    }
-
-    // Server shutdown after SIGINT
-    std::cout << "SERVER: Server shutdown" << std::endl;
-}
-
 // Handle each client separately
 int handleClient(int clientSocket){
     int bytesRcv;
@@ -123,6 +135,7 @@ int handleClient(int clientSocket){
     char response[] = "OK" ;
 
     std::cout << "SERVER: Received client connection" << std::endl;
+    log("SERVER: Received client connection");
 
     // Infinite loop to talk to client
     while(1) {
@@ -130,7 +143,7 @@ int handleClient(int clientSocket){
         bytesRcv = recv(clientSocket, buffer, sizeof(buffer), 0);
 
         if (bytesRcv < 0){
-            std::cout << "SERVER: bytesRcv < 0 error" << std::endl;
+            log("SERVER ERROR: bytesRcv < 0 error");
             break;
         }
 
@@ -148,6 +161,7 @@ int handleClient(int clientSocket){
             // Call the handleUpload function
             std::cout << "SERVER: --------------------------------" << std::endl;
             std::cout << "SERVER: --- < Entering Upload Mode > ---" << std::endl;
+            log("SERVER: --- < Entering Upload Mode > ---");
 
             handleUpload(clientSocket);
         }
@@ -156,6 +170,7 @@ int handleClient(int clientSocket){
             // Call the handleDownload function
             std::cout << "SERVER: ----------------------------------" << std::endl;
             std::cout << "SERVER: --- < Entering Download Mode > ---" << std::endl;
+            log("SERVER: --- < Entering Download Mode > ---");
 
             handleDownload(clientSocket);
             send(clientSocket, response, strlen(response), 0);
@@ -163,6 +178,7 @@ int handleClient(int clientSocket){
     }
 
     std::cout << "SERVER: Closing client connection" << std::endl;
+    log("SERVER: Closing client connection");
     close(clientSocket);
     return 0;
 }
@@ -177,21 +193,26 @@ int handleUpload(int clientSocket){
         //std::cout << "bytesRcv = " << bytesRcv << std::endl;
 
         if (bytesRcv < 0){
-            std::cout << "SERVER: bytesRcv < 0 error" << std::endl;
+            log("SERVER ERROR: bytesRcv < 0 error");
         }
 
         if (strcmp(recvFile.fn, "abort") == 0){
             std::cout << "SERVER: --- < Aborting Upload Mode > ---" << std::endl;
+            log("SERVER: --- < Aborting Upload Mode > ---");
             return 0;
         }
 
         if (strcmp(recvFile.fn, "done") == 0){
             std::cout << "SERVER: --- < Finishing Upload Mode > ---" << std::endl;
+            log("SERVER: --- < Finishing Upload Mode > ---");
             return 0;
         }
 
         std::cout << "SERVER: File's name is: " << recvFile.fn << std::endl;
+        std::string fnStr(recvFile.fn);
+        log("SERVER: File's name is: " + fnStr);
         std::cout << "SERVER: File's size is: " << recvFile.fs << std::endl;
+        log("SERVER: File's size is: " + std::to_string(recvFile.fs));
 
         clientUpload(clientSocket, recvFile.fn, recvFile.fs); 
     }
@@ -205,12 +226,12 @@ int clientUpload(int clientSocket, const char fileName[128], int fileSize){
     std::string fullPath = "./output/";
     fullPath += fileName;
 
-    std::cout << "SERVER: Client uploading" << std::endl;
+    log("SERVER: Client uploading");
 
     std::ofstream outFile(fullPath, std::ofstream::binary);
 
     if (!outFile){
-        std::cout << "SERVER: Could not write outFile" << std::endl;
+        log("SERVER ERROR: Could not write outFile");
         return -1;
     }
 
@@ -219,7 +240,7 @@ int clientUpload(int clientSocket, const char fileName[128], int fileSize){
         int bytesRead = recv(clientSocket, buffer, bytesToRead, 0);
 
         if (bytesRead < 0){
-            std::cout << "SERVER: Writing error (bytesRead < 0)" << std::endl;
+            log("SERVER: Writing error (bytesRead < 0)");
             break;
         }
 
@@ -233,11 +254,12 @@ int clientUpload(int clientSocket, const char fileName[128], int fileSize){
     const char* ackMsg = "file_received"; 
     int ackBytes = send(clientSocket, ackMsg, strlen(ackMsg), 0);
     if (ackBytes > 0){
-        std::cout << "SERVER: Server has received file: " << fileName << std::endl;
+        std::string fileNameStr(fileName);
+        log("SERVER: Server has received file: " + fileNameStr);
     }
 
     outFile.close();
-    std::cout << "SERVER: File closed" << std::endl;
+    log("SERVER: File closed");
     return 0;
 }
 
@@ -257,13 +279,14 @@ int handleDownload(int clientSocket){
         int downFile = recv(clientSocket, buffer, sizeof(buffer), 0);
 
         if (downFile < 0){
-            std::cout << "SERVER: downFile < 0 error" << std::endl;
+            log("SERVER ERROR: downFile < 0 error");
         }
 
         std::cout << "SERVER: The requested file is: " << buffer << std::endl;
 
         if(strcmp(buffer, "abort") == 0){
             std::cout << "SERVER: --- < Aborting Download Mode > ---" << std::endl;
+            log("SERVER: --- < Aborting Download Mode > ---");
             return 0;
         }
 
@@ -279,7 +302,7 @@ int handleDownload(int clientSocket){
 
             // If cannot open inFile
             if (!inFile){
-                std::cout << "CLIENT: Could not open inFile" << std::endl;
+                log("SERVER ERROR: Could not open inFile");
                 return -1;
             }
             
@@ -294,13 +317,15 @@ int handleDownload(int clientSocket){
             bytesSend = send(clientSocket, &requestFile, sizeof(requestFile), 0);
 
             if(bytesSend < 0){
-                std::cout << "CLIENT: bytesSend < 0 error" << std::endl;
+                log("SERVER ERROR: bytesSend < 0 error");
             }
 
             std::cout << "SERVER: Sent metadata of file " << requestFile.fn << " to client" << std::endl;
+            std::string requestFileNameStr(requestFile.fn);
+            log("SERVER: Sent metadata of file " + requestFileNameStr + " to client");
 
             if(bytesSend < 0){
-                std::cout << "CLIENT: bytesSend < 0 error" << std::endl;
+                log("SERVER ERROR: bytesSend < 0 error");
             }
 
             // Read inFile into buffer
@@ -313,11 +338,12 @@ int handleDownload(int clientSocket){
                 bytesSend = send(clientSocket, buffer, bytesRead, 0);
 
                 if(bytesSend < 0){
-                    std::cout << "SERVER: bytesSend < 0 error" << std::endl;
+                    log("SERVER ERROR: bytesSend < 0 error");
                 }
             }
 
             std::cout << "File: " << requestFile.fn << " - Done" << std::endl;
+            log("File: " + requestFileNameStr + " - Done");
 
             // Wait for the acknowledgement from the client
             char ackBuffer[80];
@@ -325,17 +351,19 @@ int handleDownload(int clientSocket){
             if (ackBytes > 0){
                 ackBuffer[ackBytes] = '\0';
                 std::cout << "SERVER: Client received file " << requestFile.fn << std::endl;
+                log("SERVER: Client received file " + requestFileNameStr);
             }
         }
         else{
             std::cout << "SERVER: File requested does not exist or inaccessible" << std::endl;
+            log("SERVER: File requested does not exist or inaccessible");
             // Send "done" - which is a fake file to let the client know that the file does not exist
             strcpy(requestFile.fn, "done");
             requestFile.fs = 0;
             bytesSend = send(clientSocket, &requestFile, sizeof(requestFile), 0);
 
             if (bytesSend < 0){
-                std::cout << "SERVER: bytesSend < 0 error" << std::endl;
+                log("SERVER ERROR: bytesSend < 0 error");
             }
 
             continue;
@@ -343,7 +371,14 @@ int handleDownload(int clientSocket){
     }
 
     std::cout << "SERVER: --- < Finishing Download Mode > ---" << std::endl;
+    log("SERVER: --- < Finishing Download Mode > ---");
     return 0;
 }
 
+// This function handles logging
+void log(const std::string& message){
+    std::lock_guard<std::mutex> guard(logMutex);
 
+    std::time_t now = std::time(nullptr);
+    logFile << std::ctime(&now) << ">> " << message << std::endl;
+}
