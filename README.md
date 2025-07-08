@@ -8,8 +8,6 @@ The main goal is to learn about networking, low level programming, concurrency, 
 
 If the goal is to learn, then I think it's worthwhile to tinker with this stuff. 
 
-There's nothing much here, for now.
-
 How to run:
    - Type 'make' to compile code 
 
